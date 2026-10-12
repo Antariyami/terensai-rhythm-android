@@ -1,7 +1,6 @@
 package kz.terensai.rhythm.data.migration
 
 import android.content.Context
-import androidx.room.withTransaction
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionRow
 import kz.terensai.rhythm.domain.LegacySession
