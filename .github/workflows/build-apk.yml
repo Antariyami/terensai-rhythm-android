@@ -1,15 +1,17 @@
-name: Build TERENSAI Android debug APK
+name: Check Android core and build debug APK
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
     paths-ignore:
       - 'docs/**'
       - '*.md'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  debug-build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,11 +27,18 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
           test -n "$SDKMANAGER" || (echo "sdkmanager not found in $ANDROID_HOME" && exit 1)
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload debug APK artifact (no public release overwrite)
+      - name: Unit tests and debug APK
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Unit test reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: terensai-rhythm-android-debug
+          name: paritm-v0.2a-unit-tests
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+      - name: Upload APK for QA (not signed release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: paritm-v0.2a-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found: ignore
