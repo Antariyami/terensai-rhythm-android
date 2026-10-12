@@ -29,3 +29,18 @@ object ProgramCatalogue {
     )
     fun byKey(key: String): ProgramCard? = programmes.firstOrNull { it.key == key }
 }
+
+/** Localized compact duration without attaching unsafe programme assumptions. */
+fun formatDuration(minutes: Int): String {
+    require(minutes >= 0)
+    val hours = minutes / 60
+    val rest = minutes % 60
+    if (hours == 0) return "$rest мин"
+    val suffix = when {
+        hours % 100 in 11..14 -> "часов"
+        hours % 10 == 1 -> "час"
+        hours % 10 in 2..4 -> "часа"
+        else -> "часов"
+    }
+    return if (rest == 0) "$hours $suffix" else "$hours ч $rest мин"
+}
