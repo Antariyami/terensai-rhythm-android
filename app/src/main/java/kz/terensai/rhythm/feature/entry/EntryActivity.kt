@@ -3,6 +3,7 @@ package kz.terensai.rhythm.feature.entry
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -52,6 +53,7 @@ import kz.terensai.rhythm.MainActivity
 import kz.terensai.rhythm.R
 import kz.terensai.rhythm.domain.ProgramCard
 import kz.terensai.rhythm.domain.ProgramCatalogue
+import kz.terensai.rhythm.domain.formatDuration
 import kz.terensai.rhythm.domain.TemplateStatus
 
 private val background = Color(0xFF15110F)
@@ -94,6 +96,7 @@ class EntryActivity : ComponentActivity() {
 @Composable
 private fun ParitmEntry(activeSession: Boolean, openLegacyTimer: () -> Unit) {
     var view by rememberSaveable { mutableStateOf("welcome") }
+    BackHandler(enabled = view == "programmes") { view = "welcome" }
     when (view) {
         "welcome" -> WelcomeScreen(
             activeSession = activeSession,
@@ -228,7 +231,7 @@ private fun ProgrammeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(item.description)
                     Text(item.ritualSummary)
-                    Text(item.durationMinutes?.let { "${it / 60} ч ${it % 60} мин" }
+                    Text(item.durationMinutes?.let(::formatDuration)
                         ?: "Продолжительность пока не утверждена")
                     if (!canOpen) Text("Полный сценарий будет подключён в следующих итерациях.")
                 }
@@ -282,9 +285,7 @@ private fun ProgrammeTile(programme: ProgramCard, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(5.dp))
             Text(
-                programme.durationMinutes?.let {
-                    if (it % 60 == 0) "${it / 60} часа" else "${it / 60} ч ${it % 60} мин"
-                } ?: "Время уточняется",
+                programme.durationMinutes?.let(::formatDuration) ?: "Время уточняется",
                 color = amber, fontSize = 13.sp
             )
             Text(programme.ritualSummary, color = muted, fontSize = 12.sp,
