@@ -7,7 +7,8 @@ android {
   namespace 'kz.terensai.rhythm'
   compileSdk 35
   defaultConfig {
-    applicationId 'kz.terensai.rhythm'
+    applicationId = project.hasProperty('paritmPreview') ? 'kz.paritm.preview' : 'kz.terensai.rhythm'
+    manifestPlaceholders = [appLabel: (project.hasProperty('paritmPreview') ? 'ПАРИТМ B1' : 'ПАРИТМ')]
     minSdk 26
     targetSdk 34
     versionCode 2
