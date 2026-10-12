@@ -1,12 +1,15 @@
-name: Build TERENSAI APK
+name: Build TERENSAI Android debug APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  build:
+  debug-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,26 +27,9 @@ jobs:
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Upload installable APK to Actions
+      - name: Upload debug APK artifact (no public release overwrite)
         uses: actions/upload-artifact@v4
         with:
-          name: terensai-rhythm-android-v0.1-apk
+          name: terensai-rhythm-android-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      - name: Publish APK in GitHub Releases for direct download
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          TAG="v0.1.0-test"
-          FILE="terensai-rhythm-v0.1.0-test.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$FILE" --clobber
-          else
-            gh release create "$TAG" "$FILE" \
-              --target "$GITHUB_SHA" \
-              --title "TERENSAI Rhythm v0.1.0 — first Android test" \
-              --notes "Тестовая Android-сборка Ритм парения (Танысу, таймеры и журнал). Устанавливайте только из официального репозитория. Debug APK для проверки на Xiaomi 13T Pro." \
-              --prerelease
-          fi
