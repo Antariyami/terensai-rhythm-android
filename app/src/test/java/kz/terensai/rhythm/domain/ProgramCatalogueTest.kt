@@ -21,6 +21,14 @@ class ProgramCatalogueTest {
         }.all { it.durationMinutes == null })
     }
 
+    @Test fun russianDurationLabelsAreGrammatical() {
+        assertEquals("3 часа", formatDuration(180))
+        assertEquals("4 часа", formatDuration(240))
+        assertEquals("5 часов", formatDuration(300))
+        assertEquals("1 час", formatDuration(60))
+        assertEquals("1 ч 15 мин", formatDuration(75))
+    }
+
     @Test fun stableUniqueCatalogueKeys() {
         val keys = ProgramCatalogue.programmes.map { it.key }
         assertEquals(keys.size, keys.toSet().size)
