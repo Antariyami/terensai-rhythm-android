@@ -1,0 +1,49 @@
+name: PARITM B2.3 — five independent sessions QA
+on:
+  push:
+    branches: [feature/b2-3-multi-sessions]
+    paths: ['.github/workflows/publish-b2-3.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Kotlin/Room JVM tests, QA APK and Android test package
+        run: gradle --no-daemon -PparitmPreview23 :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Publish isolated QA build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v0.2.3-b23-preview-1"
+          FILE="paritm-b2-3-five-sessions-qa.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release exists; refusing replacement" >&2
+            exit 1
+          fi
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          test -s "$FILE"
+          gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+            --title "ПАРИТМ B2.3 · Моя смена / 5 сессий" \
+            --notes "Offline-first QA package kz.paritm.b23.preview; old B2.2.1 unchanged. My Shift overview, up to 5 independent Tanysu programmes, independent Room clocks + event journals, sessionId switching, idempotent creation, additive Room v1→v2 migration and app-generated origin identity for future sync. No multi-device sync, PM1 assignments or live route edits yet. Note: this distinct QA app has a new sandbox, so previous QA data does not automatically transfer. Debug signature is temporary."
+      - name: Keep Android instrumentation test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: paritm-b23-android-tests
+          path: app/build/outputs/apk/androidTest/debug/
+          if-no-files-found: error
