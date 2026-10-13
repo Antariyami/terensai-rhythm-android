@@ -30,7 +30,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG=v0.2.4.2a-qa-1
+          TAG=v0.2.4.2a-qa-2
           FILE=paritm-b2-4-2a-external-pm1-qa.apk
           if gh release view "$TAG" >/dev/null 2>&1; then exit 1; fi
           cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
