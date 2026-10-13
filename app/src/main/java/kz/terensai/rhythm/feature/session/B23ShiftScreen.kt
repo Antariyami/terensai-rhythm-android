@@ -31,7 +31,9 @@ fun B23ShiftScreen(
     notice: String?,
     onBack: () -> Unit,
     onNew: () -> Unit,
-    onOpen: (String) -> Unit
+    onOpen: (String) -> Unit,
+    onMasters: () -> Unit = {},
+    leaders: Map<String,String> = emptyMap()
 ) {
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         ParitmAtmosphere()
@@ -43,6 +45,9 @@ fun B23ShiftScreen(
                 Spacer(Modifier.weight(1f))
                 Image(painter=painterResource(R.drawable.paritm_approved_mark_hq),
                     contentDescription="ПАРИТМ",modifier=Modifier.size(48.dp))
+            }
+            OutlinedButton(onClick=onMasters,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+                Text("Мастера · личный профиль и справочник",color=C.amber)
             }
             Text("ПАРИТМ  ·  МОЯ СМЕНА",color=C.bronze,
                 fontWeight=FontWeight.SemiBold,fontSize=12.sp,letterSpacing=2.sp)
@@ -76,6 +81,7 @@ fun B23ShiftScreen(
                         Text(session.metadata.suite?.takeIf{it.isNotBlank()} ?: "Без сьюта",
                             color=C.cream,fontSize=13.sp)
                     }
+                    Text("PM1: " + (leaders[session.id] ?: "не назначен"),color=C.bronze,fontSize=13.sp)
                     Text(session.programmeTitle,color=C.white,fontSize=19.sp,
                         fontWeight=FontWeight.SemiBold)
                     Text("С начала: ${formatElapsed(session.progress.elapsedWallClockMs)}",
