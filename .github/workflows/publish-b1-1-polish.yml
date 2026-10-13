@@ -37,8 +37,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="v0.2.0-b1-1-polish-preview-1"
-          FILE="paritm-b1-1-polish-qa.apk"
+          TAG="v0.2.0-b1-1-polish-preview-2"
+          FILE="paritm-b1-1-approved-hq-qa.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release exists; refusing overwrite" >&2
             exit 1
@@ -47,5 +47,5 @@ jobs:
           test -s "$FILE"
           gh release create "$TAG" "$FILE" \
             --target "$GITHUB_SHA" --title "ПАРИТМ B1.1 — визуальная доводка (QA)" \
-            --notes "Изолированная QA APK: kz.paritm.b11.preview. Новый Compose-фон, переработанные плитки, уменьшенное масштабирование медальона. ВАЖНО: высокодетальный оригинал значка и чистые художественные фоновые assets ещё не встроены. Старый Java-таймер сохраняется до B2. APK подписана одноразовым debug-ключом. Не удаляет B1+, не переносит данные других версий." \
+            --notes "Изолированная QA APK: kz.paritm.b11.preview. Новый Compose-фон, переработанные плитки, утверждённый 512px медальон без пикселизации от 128px оригинала. Чистые художественные фоны и фотографические изображения программ ещё не встроены. Старый Java-таймер сохраняется до B2. APK подписана одноразовым debug-ключом. Не удаляет B1+, не переносит данные других версий." \
             --prerelease
