@@ -8,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kz.terensai.rhythm.BuildConfig
+import kz.terensai.rhythm.feature.qa.B21QaActivity
 import kz.terensai.rhythm.MainActivity
 import kz.terensai.rhythm.ui.theme.ParitmTheme
 
@@ -22,7 +24,9 @@ class EntryActivity: ComponentActivity() {
       ParitmTheme {
         ParitmB1Root(
           hasOldActiveSession = oldSessionActive,
-          openPilotTimer = { startActivity(Intent(this,MainActivity::class.java)) }
+          openPilotTimer = { startActivity(Intent(this,MainActivity::class.java)) },
+          showQa = BuildConfig.B21_QA,
+          openQa = { startActivity(Intent(this,B21QaActivity::class.java)) }
         )
       }
     }
