@@ -37,6 +37,7 @@ object WorkJournalReport {
             val end=line.work.events.lastOrNull{it.kind=="COMPLETE"}?.atMs
             listOfNotNull(
                 "${index+1}. ${WorkJournalLabels.procedure(row.procedureType)}",
+                "Программа: ${row.programmeNameSnapshot?:"не указана"}",
                 "Сьют: ${row.suiteNameSnapshot?: "не указан (локальная программа)"}",
                 "PM1: ${row.pm1NameSnapshot?: "не указан (локальная программа)"}",
                 "Роль: ${row.role}",
