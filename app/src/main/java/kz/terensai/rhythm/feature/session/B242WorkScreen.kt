@@ -100,6 +100,12 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
             Text("Процедура: ${work.row.procedureType}",color=C.cream)
             if(work.row.pm1NameSnapshot!=null) Text("PM1: ${work.row.pm1NameSnapshot}",color=C.cream)
             if(work.row.suiteNameSnapshot!=null) Text("Сьют: ${work.row.suiteNameSnapshot}",color=C.cream)
+            val startedAt=work.events.firstOrNull{it.kind=="START"}?.atMs
+            if(startedAt!=null) {
+                val stamp=java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale("ru","RU"))
+                    .format(java.util.Date(startedAt))
+                Text("Начало процедуры: $stamp",color=C.secondary)
+            }
             Text("План: ${work.row.plannedMs/60000} мин",color=C.amber)
             Text("Факт: ${formatElapsed(work.elapsedMs)}",fontSize=37.sp,color=C.fact)
             Text("Состояние: "+when(work.state){"READY"->"ожидает запуска";"RUNNING"->"идёт";"PAUSED"->"пауза";else->"завершена"},
