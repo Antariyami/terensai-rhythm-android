@@ -58,15 +58,18 @@ import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
 
 @Composable
 fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit,
-  showQa:Boolean=false,openQa:()->Unit={},showNewTimeline:Boolean=false) {
+  showQa:Boolean=false,openQa:()->Unit={},showNewTimeline:Boolean=false,
+  showMultiSession:Boolean=false,openShift:()->Unit={}) {
   var screen by rememberSaveable { mutableStateOf("welcome") }
   BackHandler(enabled=screen=="programmes") { screen="welcome" }
   if (screen=="welcome") {
     WelcomeScreen(
       hasActiveSession=hasOldActiveSession,
       onProgrammes={screen="programmes"},
-      onContinue= openPilotTimer,
-      showNewTimeline=showNewTimeline
+      onContinue=if(showMultiSession) openShift else openPilotTimer,
+      showNewTimeline=showNewTimeline,
+      showMultiSession=showMultiSession,
+      onShift=openShift
     )
   } else {
     ProgrammesScreen(
@@ -75,7 +78,9 @@ fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit,
       onPilot=openPilotTimer,
       showQa=showQa,
       onQa=openQa,
-      showNewTimeline=showNewTimeline
+      showNewTimeline=showNewTimeline,
+      showMultiSession=showMultiSession,
+      onShift=openShift
     )
   }
 }
@@ -95,7 +100,9 @@ private fun WelcomeScreen(
   hasActiveSession:Boolean,
   onProgrammes:()->Unit,
   onContinue:()->Unit,
-  showNewTimeline:Boolean
+  showNewTimeline:Boolean,
+  showMultiSession:Boolean,
+  onShift:()->Unit
 ) {
   Box(Modifier.fillMaxSize().background(C.canvas)) {
     ParitmAtmosphere()
@@ -128,7 +135,14 @@ private fun WelcomeScreen(
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick=onContinue,modifier=Modifier.fillMaxWidth().heightIn(min=54.dp),
           shape=RoundedCornerShape(18.dp)) {
-          Text(if(showNewTimeline) "Продолжить сессию" else "Продолжить пилотную сессию",color=C.white)
+          Text(if(showMultiSession) "Моя смена · активные программы"
+            else if(showNewTimeline) "Продолжить сессию" else "Продолжить пилотную сессию",color=C.white)
+        }
+      }
+      if(showMultiSession && !hasActiveSession) {
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick=onShift,modifier=Modifier.fillMaxWidth().heightIn(min=54.dp)) {
+          Text("Моя смена",color=C.amber)
         }
       }
       Spacer(Modifier.height(30.dp))
@@ -142,7 +156,9 @@ private fun WelcomeScreen(
 private fun ProgrammesScreen(
   hasActiveSession:Boolean,onBack:()->Unit,onPilot:()->Unit,
   showQa:Boolean,onQa:()->Unit,
-  showNewTimeline:Boolean
+  showNewTimeline:Boolean,
+  showMultiSession:Boolean,
+  onShift:()->Unit
 ) {
   var selectionId by rememberSaveable { mutableStateOf<String?>(null) }
   val chosen=ProgrammeCatalog.get(selectionId ?: "")
@@ -179,8 +195,14 @@ private fun ProgrammesScreen(
     }
     if(hasActiveSession) {
       Spacer(Modifier.height(8.dp))
-      ParitmPrimaryButton("Продолжить текущую сессию",onPilot,
+      ParitmPrimaryButton(if(showMultiSession) "Моя смена · открыть программы" else "Продолжить текущую сессию",
+        if(showMultiSession) onShift else onPilot,
         modifier=Modifier.fillMaxWidth())
+    }
+    if (showMultiSession && !hasActiveSession) {
+      OutlinedButton(onClick=onShift,modifier=Modifier.fillMaxWidth().heightIn(min=54.dp)) {
+        Text("Моя смена",color=C.amber)
+      }
     }
     if (showQa) {
       Spacer(Modifier.height(10.dp))
@@ -217,7 +239,7 @@ private fun ProgrammesScreen(
           selectionId=null
           if(pilot) onPilot()
         }) {
-          Text(if(pilot) (if(showNewTimeline) "Настроить / продолжить" else "Открыть пилотный таймер") else "Понятно",color=C.amber)
+          Text(if(pilot) (if(showNewTimeline) (if(showMultiSession) "Начать новую программу" else "Настроить / продолжить") else "Открыть пилотный таймер") else "Понятно",color=C.amber)
         }
       },
       dismissButton={

@@ -29,8 +29,14 @@ class EntryActivity: ComponentActivity() {
       ParitmTheme {
         ParitmB1Root(
           hasOldActiveSession = oldSessionActive,
-          openPilotTimer = { startActivity(Intent(this, if (BuildConfig.B22_QA) B22SessionActivity::class.java else MainActivity::class.java)) },
-          showNewTimeline = BuildConfig.B22_QA,
+          openPilotTimer = {
+            val intent = Intent(this, if (BuildConfig.B22_QA || BuildConfig.B23_QA) B22SessionActivity::class.java else MainActivity::class.java)
+            if (BuildConfig.B23_QA) intent.putExtra("prepare", true)
+            startActivity(intent)
+          },
+          openShift = { startActivity(Intent(this,B22SessionActivity::class.java)) },
+          showMultiSession = BuildConfig.B23_QA,
+          showNewTimeline = BuildConfig.B22_QA || BuildConfig.B23_QA,
           showQa = BuildConfig.B21_QA,
           openQa = { startActivity(Intent(this,B21QaActivity::class.java)) }
         )
@@ -39,11 +45,12 @@ class EntryActivity: ComponentActivity() {
   }
   override fun onResume() {
     super.onResume()
-    if (BuildConfig.B22_QA) {
+    if (BuildConfig.B22_QA || BuildConfig.B23_QA) {
       lifecycleScope.launch {
         try {
-          oldSessionActive = SessionRepository(ParitmDatabase.get(this@EntryActivity))
-            .active()!=null
+          val repo = SessionRepository(ParitmDatabase.get(this@EntryActivity))
+          oldSessionActive = if(BuildConfig.B23_QA) repo.activeSessions().isNotEmpty()
+              else repo.active()!=null
         } catch (_: Exception) {
           oldSessionActive = false
         }
