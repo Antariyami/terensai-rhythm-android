@@ -96,7 +96,7 @@ private fun BrandMark(modifier:Modifier=Modifier) {
 }
 
 @Composable
-private fun WelcomeScreen(
+internal fun WelcomeScreen(
   hasActiveSession:Boolean,
   onProgrammes:()->Unit,
   onContinue:()->Unit,
@@ -153,7 +153,7 @@ private fun WelcomeScreen(
 }
 
 @Composable
-private fun ProgrammesScreen(
+internal fun ProgrammesScreen(
   hasActiveSession:Boolean,onBack:()->Unit,onPilot:()->Unit,
   showQa:Boolean,onQa:()->Unit,
   showNewTimeline:Boolean,

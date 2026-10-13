@@ -1,0 +1,48 @@
+name: PARITM N1 — navigation shell QA
+on:
+  push:
+    branches: [feature/n1-navigation-shell]
+    paths: ['.github/workflows/publish-n1.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: JVM tests and build app & instrumentation tests
+        run: gradle --no-daemon -PparitmPreviewN1 :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Store QA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: paritm-n1-navigation-qa
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Optional GitHub release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=v0.3.2-n1-qa-2
+          FILE=paritm-n1-navigation-qa.apk
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+              --title "ПАРИТМ N1 · Навигация" \
+              --notes "Six-section navigation shell: Home, Programmes, Shift, Reports, Analytics (clearly marked as future), Settings (editable suites and master directory). Retains journal hotfix. Ambiguous suite numbering deliberately not overwritten; old QA data remain in previous installation."
+          fi
