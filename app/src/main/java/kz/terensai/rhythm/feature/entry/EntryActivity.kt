@@ -27,7 +27,27 @@ class EntryActivity: ComponentActivity() {
     window.navigationBarColor = android.graphics.Color.rgb(21,17,15)
     setContent {
       ParitmTheme {
-        ParitmB1Root(
+        if(BuildConfig.N1_QA) {
+          N1NavigationShell(
+            hasActiveSession=oldSessionActive,
+            openPilotTimer={
+              val intent=Intent(this,B22SessionActivity::class.java)
+              intent.putExtra("prepare",true)
+              startActivity(intent)
+            },
+            openShift={startActivity(Intent(this,B22SessionActivity::class.java))},
+            openReports={
+              val intent=Intent(this,B22SessionActivity::class.java)
+              intent.putExtra("openJournal",true)
+              startActivity(intent)
+            },
+            openMasters={
+              val intent=Intent(this,B22SessionActivity::class.java)
+              intent.putExtra("openMasters",true)
+              startActivity(intent)
+            }
+          )
+        }else ParitmB1Root(
           hasOldActiveSession = oldSessionActive,
           openPilotTimer = {
             val intent = Intent(this, if (BuildConfig.B22_QA || BuildConfig.B23_QA) B22SessionActivity::class.java else MainActivity::class.java)
