@@ -10,10 +10,13 @@ import org.json.JSONObject
  * Versioned immutable snapshot: B2 sessions never reference a mutable template
  * for reconstruction. Keep old snapshot versions readable when the editor arrives.
  */
+/** Session-specific notes stored inside the immutable snapshot without a Room schema change. */
+data class SessionMetadata(val suite: String? = null, val guestCount: Int? = null)
+
 object ProgramSnapshotCodec {
     private const val VERSION = 1
 
-    fun encode(plan: ProgramPlan): String {
+    fun encode(plan: ProgramPlan, metadata: SessionMetadata = SessionMetadata()): String {
         val stages = JSONArray()
         plan.stages.forEach { stage ->
             stages.put(JSONObject()
@@ -29,7 +32,18 @@ object ProgramSnapshotCodec {
             .put("title", plan.title)
             .put("plannedDurationMs", plan.plannedDurationMs)
             .put("stages", stages)
+            .put("suite", metadata.suite ?: JSONObject.NULL)
+            .put("guestCount", metadata.guestCount ?: JSONObject.NULL)
             .toString()
+    }
+
+    fun metadata(snapshot: String): SessionMetadata {
+        val json = JSONObject(snapshot)
+        return SessionMetadata(
+            suite = json.optString("suite").takeUnless { it.isBlank() || it == "null" },
+            guestCount = if (json.isNull("guestCount")) null else json.optInt("guestCount", 0)
+                .takeIf { it > 0 }
+        )
     }
 
     fun decode(snapshot: String): ProgramPlan {
