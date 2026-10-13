@@ -42,14 +42,20 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         db.withTransaction {
             require(db.staff().member(masterId)?.archived==false){"Выбери действующий профиль мастера"}
             if(sessionId!=null)require(db.records().session(sessionId)!=null){"Программа не найдена"}
-            val leader = externalPm1Id?.let { db.staff().member(it) }
+            val leader = if(sessionId!=null) {
+                db.staff().activeLeader(sessionId)?.let {db.staff().member(it.staffId)}
+            }else externalPm1Id?.let { db.staff().member(it) }
+            val localSession=sessionId?.let{db.records().session(it)}
+            val localSuite=localSession?.let{
+                runCatching {ProgramSnapshotCodec.metadata(it.snapshotJson).suite}.getOrNull()
+            }
             if(sessionId==null) require(leader!=null && !leader.archived){"PM1 не найден в справочнике"}
             val row=WorkRow(UUID.randomUUID().toString(),sessionId,masterId,role,procedure,
                 plannedMinutes*60000L,now(),origin,
                 pm1StaffId=leader?.id,
                 pm1NameSnapshot=leader?.displayName,
-                suiteNameSnapshot=externalSuite?.trim()?.take(48),
-                programmeNameSnapshot=externalProgramme?.trim()?.take(80))
+                suiteNameSnapshot=(localSuite ?: externalSuite)?.trim()?.take(48),
+                programmeNameSnapshot=(localSession?.templateTitle ?: externalProgramme)?.trim()?.take(80))
             dao.create(row)
             projection(row,emptyList(),now())
         }
