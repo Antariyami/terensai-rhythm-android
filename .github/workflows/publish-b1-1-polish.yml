@@ -1,0 +1,51 @@
+name: B1.1 polish - Android QA APK
+on:
+  push:
+    branches: [feature/b1-1-visual-polish]
+    paths: ['.github/workflows/publish-b1-1-polish.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Unit tests and QA build
+        run: gradle --no-daemon -PparitmPreview11 :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b1-1-unit-test-reports
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+      - name: Publish immutable preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v0.2.0-b1-1-polish-preview-2"
+          FILE="paritm-b1-1-approved-hq-qa.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release exists; refusing overwrite" >&2
+            exit 1
+          fi
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          test -s "$FILE"
+          gh release create "$TAG" "$FILE" \
+            --target "$GITHUB_SHA" --title "ПАРИТМ B1.1 — визуальная доводка (QA)" \
+            --notes "Изолированная QA APK: kz.paritm.b11.preview. Новый Compose-фон, переработанные плитки, утверждённый 512px медальон без пикселизации от 128px оригинала. Чистые художественные фоны и фотографические изображения программ ещё не встроены. Старый Java-таймер сохраняется до B2. APK подписана одноразовым debug-ключом. Не удаляет B1+, не переносит данные других версий." \
+            --prerelease

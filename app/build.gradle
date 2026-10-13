@@ -7,12 +7,12 @@ android {
   namespace 'kz.terensai.rhythm'
   compileSdk 35
   defaultConfig {
-    applicationId = project.hasProperty('paritmPreview') ? 'kz.paritm.preview.approved' : 'kz.terensai.rhythm'
-    manifestPlaceholders = [appLabel: (project.hasProperty('paritmPreview') ? 'ПАРИТМ B1+' : 'ПАРИТМ')]
+    applicationId = project.hasProperty('paritmPreview11') ? 'kz.paritm.b11.preview' : (project.hasProperty('paritmPreview') ? 'kz.paritm.preview.approved' : 'kz.terensai.rhythm')
+    manifestPlaceholders = [appLabel: (project.hasProperty('paritmPreview11') ? 'ПАРИТМ B1.1' : (project.hasProperty('paritmPreview') ? 'ПАРИТМ B1+' : 'ПАРИТМ'))]
     minSdk 26
     targetSdk 34
-    versionCode 3
-    versionName '0.2.0-b1.2'
+    versionCode 4
+    versionName '0.2.0-b1.1-qa.1'
   }
   compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
   kotlinOptions { jvmTarget = '17' }
