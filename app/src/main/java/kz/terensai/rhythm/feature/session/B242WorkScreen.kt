@@ -17,7 +17,8 @@ import kz.terensai.rhythm.ui.theme.ParitmColors as C
 @Composable
 fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,notice:String?,
     onBack:()->Unit,onCreate:(String?,String,String,Int,String?,String?,String?)->Unit,
-    onAction:(String)->Unit,onNew:()->Unit,masters:List<StaffRow>){
+    onAction:(String)->Unit,onNew:()->Unit,masters:List<StaffRow>,
+    allWorks:List<WorkView> = emptyList(),onOpenWork:(String)->Unit = {}){
     var sessionId by remember {mutableStateOf<String?>(null)}
     var role by remember {mutableStateOf("PM")}
     var procedure by remember {mutableStateOf("INDIVIDUAL_STEAM")}
@@ -33,6 +34,29 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
         Text("ПАРИТМ · МОЁ УЧАСТИЕ",color=C.bronze,fontSize=12.sp)
         Text("Личная процедура",color=C.white,fontSize=27.sp)
         if(notice!=null)Text(notice,color=C.amber)
+        if(allWorks.isNotEmpty()){
+            Text("Сохранённые процедуры",color=C.cream)
+            allWorks.forEach {item->
+                OutlinedButton(onClick={onOpenWork(item.row.id)},modifier=Modifier.fillMaxWidth()){
+                    Text(when(item.row.procedureType){
+                        "INDIVIDUAL_STEAM"->"Индивидуальное парение"
+                        "COLLECTIVE_STEAM"->"Коллективное парение"
+                        "MASSAGE"->"Массаж"
+                        "PEELING"->"Пилинг"
+                        "WASHING"->"Помывка"
+                        else->"Процедура"
+                    }+" · "+when(item.state){
+                        "READY"->"ожидает"
+                        "RUNNING"->"идёт"
+                        "PAUSED"->"пауза"
+                        else->"завершена"
+                    },color=C.white)
+                }
+            }
+            if(work!=null && work.state!="RUNNING"){
+                TextButton(onClick=onNew){Text("+ Новая процедура",color=C.amber)}
+            }
+        }
         if(work==null){
             Text("Программа",color=C.cream)
             Box {

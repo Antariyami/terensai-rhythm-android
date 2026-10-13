@@ -44,6 +44,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     var showingWork by rememberSaveable { mutableStateOf(false) }
     var personalWorkId by rememberSaveable {mutableStateOf<String?>(null)}
     var personalWork by remember {mutableStateOf<WorkView?>(null)}
+    var creatingNewWork by rememberSaveable {mutableStateOf(false)}
+    var myWorks by remember { mutableStateOf<List<WorkView>>(emptyList()) }
 
     var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
     var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
@@ -65,7 +67,12 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                 if (!pending) {
                     items = repo.activeSessions()
                     masters = staffRepo.all()
-                    personalWorkId?.let { personalWork=workRepo.get(it) }
+                    val mine=masters.firstOrNull { it.isMyProfile }?.id
+                    myWorks=if(mine!=null) workRepo.all(mine) else emptyList()
+                    if(personalWorkId==null && !creatingNewWork) {
+                        personalWorkId=myWorks.firstOrNull { it.state!="COMPLETED" }?.row?.id
+                    }
+                    personalWork=personalWorkId?.let { id -> myWorks.firstOrNull { it.row.id==id } }
                     leaders = items.associate { it.id to (staffRepo.leader(it.id)?.displayName ?: "не назначен") }
                 }
                 loaded = true
@@ -117,6 +124,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
             showingWork -> B242WorkScreen(
                 sessions=items,work=personalWork,pending=pending,notice=notice,masters=masters,
+                allWorks=myWorks,onOpenWork={id-> creatingNewWork=false;personalWorkId=id; personalWork=myWorks.firstOrNull{it.row.id==id} },
                 onBack={showingWork=false},
                 onCreate={session,role,procedure,minutes,leader,suiteName,programmeName->
                     val myId=masters.firstOrNull{it.isMyProfile}?.id
@@ -126,12 +134,12 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                         try {
                             val created=workRepo.create(myId,session,role=role,procedure=procedure,plannedMinutes=minutes,
                                 externalPm1Id=leader,externalSuite=suiteName,externalProgramme=programmeName)
-                            personalWorkId=created.row.id; personalWork=created;notice="Процедура сохранена"
+                            personalWorkId=created.row.id;personalWork=created;creatingNewWork=false;notice="Процедура сохранена"
                         }catch(e:Exception){notice="Ошибка: "+e.message}
                         finally{pending=false}
                     }
                 },
-                onNew={personalWorkId=null;personalWork=null},
+                onNew={creatingNewWork=true;personalWorkId=null;personalWork=null},
                 onAction={kind->
                     val id=personalWorkId
                     if(id!=null)scope.launch{
@@ -206,7 +214,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     B23ShiftScreen(
                         sessions=items,pending=pending,notice=notice,
                         onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders
+                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders,
+                        workItems=myWorks,onOpenWork={id->creatingNewWork=false;personalWorkId=id;personalWork=myWorks.firstOrNull{it.row.id==id};showingWork=true}
                     )
                 } else {
                     B22TimelineScreen(

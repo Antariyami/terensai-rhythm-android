@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.R
 import kz.terensai.rhythm.data.SavedSession
+import kz.terensai.rhythm.data.WorkView
 import kz.terensai.rhythm.domain.StageStatus
 import kz.terensai.rhythm.feature.entry.ParitmAtmosphere
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
@@ -34,7 +35,9 @@ fun B23ShiftScreen(
     onOpen: (String) -> Unit,
     onMasters: () -> Unit = {},
     onWork: () -> Unit = {},
-    leaders: Map<String,String> = emptyMap()
+    leaders: Map<String,String> = emptyMap(),
+    workItems: List<WorkView> = emptyList(),
+    onOpenWork: (String)->Unit = {}
 ) {
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         ParitmAtmosphere()
@@ -52,6 +55,17 @@ fun B23ShiftScreen(
             }
             OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Моё участие · личная процедура",color=C.amber)
+            }
+            Text("Мои процедуры · ${workItems.count{it.state!="COMPLETED"}} незавершённых",color=C.cream,fontSize=18.sp)
+            workItems.filter{it.state!="COMPLETED"}.forEach { item ->
+                OutlinedButton(onClick={onOpenWork(item.row.id)},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+                    Text((when(item.row.procedureType){
+                        "INDIVIDUAL_STEAM"->"Индивидуальное парение"
+                        "COLLECTIVE_STEAM"->"Коллективное парение"
+                        "MASSAGE"->"Массаж"
+                        else->"Личная процедура"
+                    })+" · "+(if(item.state=="PAUSED")"Пауза" else if(item.state=="RUNNING")"Идёт" else "Ожидает"),color=C.amber)
+                }
             }
             Text("ПАРИТМ  ·  МОЯ СМЕНА",color=C.bronze,
                 fontWeight=FontWeight.SemiBold,fontSize=12.sp,letterSpacing=2.sp)
