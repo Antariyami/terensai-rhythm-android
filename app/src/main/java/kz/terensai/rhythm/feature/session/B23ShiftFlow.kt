@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import kz.terensai.rhythm.data.LocalInstallIdentity
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.data.SessionRepository
+import kz.terensai.rhythm.data.StaffRepository
+import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionMetadata
 import kz.terensai.rhythm.domain.EventKind
@@ -34,7 +36,13 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             originClientId = LocalInstallIdentity.get(context)
         )
     }
+    val staffRepo=remember(context) { StaffRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
     val scope = rememberCoroutineScope()
+    var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
+    var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
+    var showingMasters by rememberSaveable {mutableStateOf(false)}
+    var selectedPm1 by rememberSaveable {mutableStateOf<String?>(null)}
+
     var items by remember { mutableStateOf<List<SavedSession>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf(false) }
@@ -47,7 +55,11 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     LaunchedEffect(repo) {
         while (true) {
             try {
-                if (!pending) items = repo.activeSessions()
+                if (!pending) {
+                    items = repo.activeSessions()
+                    masters = staffRepo.all()
+                    leaders = items.associate { it.id to (staffRepo.leader(it.id)?.displayName ?: "не назначен") }
+                }
                 loaded = true
             } catch (e: Exception) {
                 notice = "Ошибка чтения: " + (e.message ?: "неизвестна")
@@ -65,7 +77,10 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                 items = repo.activeSessions()
                 selectedId = if (changed.finishedAtMs == null) changed.id else null
                 preparing = false
-                if (isCreation) creationRequestId = UUID.randomUUID().toString()
+                if (isCreation) {
+                    creationRequestId = UUID.randomUUID().toString()
+                    selectedPm1=null
+                }
                 notice = if (changed.finishedAtMs == null) "Сохранено в базе" else "Программа завершена и сохранена"
             } catch (e: Exception) {
                 notice = "Ошибка: " + (e.message ?: "проверь действие")
@@ -80,26 +95,69 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
         selectedId = null
         creationRequestId = UUID.randomUUID().toString()
         preparing = true
+        selectedPm1=masters.firstOrNull{it.isMyProfile}?.id
         notice = null
     }
-    BackHandler(enabled = preparing || selectedId != null) {
+    BackHandler(enabled = preparing || selectedId != null || showingMasters) {
+        showingMasters=false
         selectedId = null
         preparing = false
     }
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         when {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
+            showingMasters -> B241MastersScreen(
+                members=masters,notice=notice,busy=pending,onBack={showingMasters=false},
+                onCreate={name,spec,mine ->
+                    scope.launch {
+                        pending=true
+                        try { staffRepo.create(name,spec,mine); masters=staffRepo.all();notice="Мастер сохранён" }
+                        catch(e:Exception){notice=e.message}
+                        finally {pending=false}
+                    }
+                },
+                onUpdate={id,name,spec ->
+                    scope.launch {
+                        pending=true
+                        try {staffRepo.edit(id,name,spec);masters=staffRepo.all();notice="Изменения сохранены"}
+                        catch(e:Exception){notice=e.message}
+                        finally {pending=false}
+                    }
+                },
+                onSelectMine={id ->
+                    scope.launch {
+                        pending=true
+                        try{staffRepo.chooseMine(id);masters=staffRepo.all();notice="Профиль выбран"}
+                        catch(e:Exception){notice=e.message}
+                        finally{pending=false}
+                    }
+                },
+                onArchive={id ->
+                    scope.launch {
+                        pending=true
+                        try{staffRepo.archive(id);masters=staffRepo.all();notice="Мастер скрыт"}
+                        catch(e:Exception){notice=e.message}
+                        finally{pending=false}
+                    }
+                }
+            )
             preparing -> B22PrepareScreen(
                 notice=notice, pending=pending,
+                staff=masters,selectedPm1=selectedPm1,onPm1Selected={selectedPm1=it},
                 onBack={ preparing=false },
                 onStart={ minutes, suite, guests ->
                     val request = creationRequestId
+                    val pm1=selectedPm1
                     refreshAfter(
-                        action={ repo.start(
-                            PilotTanysuPlan.toPlan(minutes),
-                            SessionMetadata(suite=suite,guestCount=guests),
-                            requestId=request
-                        ) },
+                        action={
+                            val saved=repo.start(
+                                PilotTanysuPlan.toPlan(minutes),
+                                SessionMetadata(suite=suite,guestCount=guests),
+                                requestId=request
+                            )
+                            if(pm1!=null) staffRepo.appointPm1(saved.id,pm1)
+                            saved
+                        },
                         isCreation=true
                     )
                 }
@@ -111,7 +169,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     // visible once the user returns, without resurrecting that record.
                     B23ShiftScreen(
                         sessions=items,pending=pending,notice=notice,
-                        onBack=onBack,onNew=::showNew,onOpen={ selectedId=it }
+                        onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
+                        onMasters={showingMasters=true},leaders=leaders
                     )
                 } else {
                     B22TimelineScreen(
@@ -131,7 +190,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             }
             else -> B23ShiftScreen(
                 sessions=items,pending=pending,notice=notice,
-                onBack=onBack,onNew=::showNew,onOpen={ selectedId=it }
+                onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
+                        onMasters={showingMasters=true},leaders=leaders
             )
         }
     }
