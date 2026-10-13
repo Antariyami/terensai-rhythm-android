@@ -15,7 +15,7 @@ import kz.terensai.rhythm.ui.theme.ParitmColors as C
 
 @Composable
 fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,notice:String?,
-    onBack:()->Unit,onCreate:(String?,String,Int)->Unit,onAction:(String)->Unit){
+    onBack:()->Unit,onCreate:(String?,String,Int)->Unit,onAction:(String)->Unit,onNew:()->Unit){
     var sessionId by remember {mutableStateOf<String?>(null)}
     var role by remember {mutableStateOf("PM")}
     var procedure by remember {mutableStateOf("INDIVIDUAL_STEAM")}
@@ -84,6 +84,11 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
             if(work.state=="RUNNING"||work.state=="PAUSED"){
                 OutlinedButton(enabled=!pending,onClick={onAction("COMPLETE")},
                     modifier=Modifier.fillMaxWidth()){Text("Завершить мою процедуру")}
+            }
+            if(work.state=="COMPLETED"){
+                OutlinedButton(onClick=onNew,modifier=Modifier.fillMaxWidth()){
+                    Text("+ Ещё одна процедура")
+                }
             }
             Text("Общая программа не останавливается при завершении участия.",
                 color=C.secondary)
