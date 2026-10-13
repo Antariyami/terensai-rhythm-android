@@ -120,11 +120,11 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                         onBack={ selectedId=null },
                         onCommand={ stageId,kind ->
                             val id=session.id
-                            refreshAfter{ repo.perform(id,stageId,kind) }
+                            refreshAfter(action={ repo.perform(id,stageId,kind) })
                         },
                         onFinish={
                             val id=session.id
-                            refreshAfter{ repo.finish(id) }
+                            refreshAfter(action={ repo.finish(id) })
                         }
                     )
                 }
