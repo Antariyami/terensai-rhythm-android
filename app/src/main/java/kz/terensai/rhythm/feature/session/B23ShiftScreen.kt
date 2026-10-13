@@ -91,7 +91,7 @@ fun B23ShiftScreen(
                         color=C.secondary,fontSize=13.sp
                     )
                     OutlinedButton(
-                        onClick={onOpen(session.id)},
+                        onClick={ onOpen(session.id) },
                         enabled=!pending,
                         modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                     ) { Text("Открыть программу →",color=C.amber) }
