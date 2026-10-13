@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.R
+import kz.terensai.rhythm.feature.entry.ParitmAtmosphere
 import kz.terensai.rhythm.domain.PilotTanysuPlan
 import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
@@ -42,7 +43,9 @@ fun B22PrepareScreen(
     val guestsValid = guests.isBlank() || (guestNumber != null && guestNumber in 1..20)
     val shape = RoundedCornerShape(18.dp)
 
-    Column(Modifier.fillMaxSize().background(C.canvas)
+    Box(Modifier.fillMaxSize().background(C.canvas)) {
+    ParitmAtmosphere()
+    Column(Modifier.fillMaxSize()
         .verticalScroll(rememberScrollState())
         .padding(horizontal=20.dp, vertical=14.dp),
         verticalArrangement=Arrangement.spacedBy(13.dp)) {
@@ -112,5 +115,6 @@ fun B22PrepareScreen(
         Text("После запуска маршрут сохраняется как неизменяемая версия в Room.",
             color=C.muted,fontSize=12.sp)
         Spacer(Modifier.height(18.dp))
+    }
     }
 }
