@@ -25,16 +25,24 @@ jobs:
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: JVM tests and Android compile
         run: gradle --no-daemon -PparitmPreview242a :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
-      - name: Release after all checks
+      - name: Upload downloadable QA APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paritm-b242a-qa-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish optional GitHub Release
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG=v0.2.4.2a-qa-2
+          TAG=v0.2.4.2a-qa-3
           FILE=paritm-b2-4-2a-external-pm1-qa.apk
-          if gh release view "$TAG" >/dev/null 2>&1; then exit 1; fi
           cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
-          test -s "$FILE"
-          gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
-            --title "ПАРИТМ B2.4.2a · внешний PM1" \
-            --notes "Independent offline QA app. Editable preset TERENSAI suites, guest entry, external PM1, suite and procedure type saved in Room v5. Finance PIN requirement documented but not implemented. Other personal procedures and calendar follow in subsequent versions. Temporary debug signature."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+              --title "ПАРИТМ B2.4.2a · внешний PM1" \
+              --notes "Test-only APK. External PM1, suite, selected procedure and start time saved in Room v5. Finance PIN requirement is documented, not yet implemented."
+          fi
