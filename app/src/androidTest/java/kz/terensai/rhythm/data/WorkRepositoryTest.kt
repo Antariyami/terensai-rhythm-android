@@ -20,7 +20,11 @@ class WorkRepositoryTest {
             val staff=StaffRepository(db,"qa"){clock}
             val me=staff.create("Тестовый мастер",asMine=true)
             val repo=WorkRepository(db,"qa"){clock}
-            val created=repo.create(me.id,null,"PM","INDIVIDUAL_STEAM",45)
+            val leader=staff.create("Ведущий мастер")
+            val created=repo.create(me.id,null,"PM","INDIVIDUAL_STEAM",45,
+                externalPm1Id=leader.id,externalSuite="4 · Амандық",externalProgramme="PREMIUM")
+            assertEquals(leader.displayName,created.row.pm1NameSnapshot)
+            assertEquals("4 · Амандық",created.row.suiteNameSnapshot)
             assertEquals("READY",created.state)
             repo.command(created.row.id,"START")
             clock+=120000L
