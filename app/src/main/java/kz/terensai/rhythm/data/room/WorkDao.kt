@@ -17,6 +17,10 @@ interface WorkDao {
     fun forMaster(staffId:String):List<WorkRow>
     @Query("SELECT * FROM work_events WHERE workId=:id ORDER BY atMs,rowid")
     fun events(id:String):List<WorkEventRow>
+    @Insert(onConflict=OnConflictStrategy.ABORT)
+    fun addCorrection(row:WorkCorrectionRow)
+    @Query("SELECT * FROM work_corrections WHERE workId=:id ORDER BY createdAtMs,rowid")
+    fun corrections(id:String):List<WorkCorrectionRow>
     @Query("UPDATE work_entries SET revision=revision+1 WHERE id=:id")
     fun touch(id:String):Int
 }
