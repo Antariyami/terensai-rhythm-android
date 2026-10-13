@@ -62,6 +62,10 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     var creationRequestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
 
     LaunchedEffect(repo) {
+        try {
+            staffRepo.ensureStarterMasters()
+            staffRepo.mine()?.id?.let { workRepo.reconcileLegacyRunning(it) }
+        }catch(e:Exception){ notice="Ошибка восстановления профиля: "+(e.message?:"неизвестна") }
         while (true) {
             try {
                 if (!pending) {
@@ -144,7 +148,21 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     val id=personalWorkId
                     if(id!=null)scope.launch{
                         pending=true
-                        try{personalWork=workRepo.command(id,kind);notice="Действие сохранено"}
+                        try{
+                            val changed=workRepo.command(id,kind)
+                            if(changed.state=="COMPLETED"){
+                                personalWorkId=null
+                                personalWork=null
+                                creatingNewWork=true
+                                notice="Процедура завершена и находится в «Завершённых»"
+                            }else{
+                                personalWork=changed
+                                notice=if(kind=="START"||kind=="RESUME")
+                                    "Таймер запущен. Другие личные процедуры поставлены на паузу."
+                                    else "Действие сохранено"
+                            }
+                            masters.firstOrNull{it.isMyProfile}?.id?.let{myWorks=workRepo.all(it)}
+                        }
                         catch(e:Exception){notice="Ошибка: "+e.message}
                         finally{pending=false}
                     }

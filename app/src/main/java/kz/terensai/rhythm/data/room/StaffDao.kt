@@ -9,6 +9,8 @@ import androidx.room.Query
 interface StaffDao {
     @Query("SELECT * FROM staff_members WHERE archived=0 ORDER BY isMyProfile DESC, displayName COLLATE NOCASE")
     fun all(): List<StaffRow>
+    @Query("SELECT * FROM staff_members ORDER BY displayName COLLATE NOCASE")
+    fun allIncludingArchived():List<StaffRow>
     @Query("SELECT * FROM staff_members WHERE id=:id LIMIT 1")
     fun member(id:String): StaffRow?
     @Query("SELECT * FROM staff_members WHERE isMyProfile=1 AND archived=0 LIMIT 1")

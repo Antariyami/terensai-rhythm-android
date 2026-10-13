@@ -34,28 +34,49 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
         Text("ПАРИТМ · МОЁ УЧАСТИЕ",color=C.bronze,fontSize=12.sp)
         Text("Личная процедура",color=C.white,fontSize=27.sp)
         if(notice!=null)Text(notice,color=C.amber)
-        if(allWorks.isNotEmpty()){
-            Text("Сохранённые процедуры",color=C.cream)
-            allWorks.forEach {item->
+        val ongoing=allWorks.filter{it.state!="COMPLETED"}
+            .sortedBy { when(it.state){"RUNNING"->0;"PAUSED"->1;else->2} }
+        val finished=allWorks.filter{it.state=="COMPLETED"}
+        Text("Незавершённые процедуры · ${ongoing.size}",color=C.cream)
+        if(ongoing.isEmpty()) Text("Пока нет незавершённых процедур",color=C.secondary)
+        ongoing.forEach { item ->
+            val label=when(item.row.procedureType){
+                "INDIVIDUAL_STEAM"->"Индивидуальное парение"
+                "COLLECTIVE_STEAM"->"Коллективное парение"
+                "MASSAGE"->"Массаж"
+                "PEELING"->"Пилинг"
+                "WASHING"->"Помывка веником"
+                else->"Другая работа"
+            }
+            val state=when(item.state){"RUNNING"->"ИДЁТ";"PAUSED"->"ПАУЗА";else->"ОЖИДАЕТ"}
+            OutlinedButton(onClick={onOpenWork(item.row.id)},
+                modifier=Modifier.fillMaxWidth().heightIn(min=53.dp)){
+                Column {
+                    Text("$label · $state",color=if(item.state=="RUNNING")C.fact else C.amber)
+                    Text("Факт ${formatElapsed(item.elapsedMs)} · ${item.row.suiteNameSnapshot?:"Локальная программа"}",
+                        color=C.secondary,fontSize=11.sp)
+                }
+            }
+        }
+        var showFinished by remember { mutableStateOf(false) }
+        TextButton(onClick={showFinished=!showFinished}) {
+            Text((if(showFinished)"▾" else "▸")+" Завершённые · ${finished.size}",color=C.cream)
+        }
+        if(showFinished) {
+            if(finished.isEmpty()) Text("Завершённых процедур пока нет",color=C.secondary)
+            finished.forEach { item ->
                 OutlinedButton(onClick={onOpenWork(item.row.id)},modifier=Modifier.fillMaxWidth()){
-                    Text(when(item.row.procedureType){
+                    Text((when(item.row.procedureType){
                         "INDIVIDUAL_STEAM"->"Индивидуальное парение"
                         "COLLECTIVE_STEAM"->"Коллективное парение"
                         "MASSAGE"->"Массаж"
-                        "PEELING"->"Пилинг"
-                        "WASHING"->"Помывка"
                         else->"Процедура"
-                    }+" · "+when(item.state){
-                        "READY"->"ожидает"
-                        "RUNNING"->"идёт"
-                        "PAUSED"->"пауза"
-                        else->"завершена"
-                    },color=C.white)
+                    })+" · завершена · ${formatElapsed(item.elapsedMs)}",color=C.secondary)
                 }
             }
-            if(work!=null && work.state!="RUNNING"){
-                TextButton(onClick=onNew){Text("+ Новая процедура",color=C.amber)}
-            }
+        }
+        if(work!=null){
+            TextButton(onClick=onNew) {Text("+ Новая процедура",color=C.amber)}
         }
         if(work==null){
             Text("Программа",color=C.cream)
@@ -121,7 +142,14 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
             }
         }else{
             Text("Моя роль: ${work.row.role}",color=C.cream)
-            Text("Процедура: ${work.row.procedureType}",color=C.cream)
+            Text("Процедура: "+when(work.row.procedureType){
+                "INDIVIDUAL_STEAM"->"Индивидуальное парение"
+                "COLLECTIVE_STEAM"->"Коллективное парение"
+                "MASSAGE"->"Массаж"
+                "PEELING"->"Пилинг"
+                "WASHING"->"Помывка веником"
+                else->"Другая работа"
+            },color=C.cream)
             if(work.row.pm1NameSnapshot!=null) Text("PM1: ${work.row.pm1NameSnapshot}",color=C.cream)
             if(work.row.suiteNameSnapshot!=null) Text("Сьют: ${work.row.suiteNameSnapshot}",color=C.cream)
             val startedAt=work.events.firstOrNull{it.kind=="START"}?.atMs
@@ -148,7 +176,7 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
                     Text("+ Ещё одна процедура")
                 }
             }
-            Text("Общая программа не останавливается при завершении участия.",
+            Text("При запуске другого личного таймера этот автоматически встанет на паузу. Общая программа не остановится.",
                 color=C.secondary)
         }
         Spacer(Modifier.height(32.dp))

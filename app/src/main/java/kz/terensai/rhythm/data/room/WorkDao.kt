@@ -15,7 +15,7 @@ interface WorkDao {
     fun entry(id:String):WorkRow?
     @Query("SELECT * FROM work_entries WHERE staffId=:staffId ORDER BY createdAtMs DESC")
     fun forMaster(staffId:String):List<WorkRow>
-    @Query("SELECT * FROM work_events WHERE workId=:id ORDER BY atMs,id")
+    @Query("SELECT * FROM work_events WHERE workId=:id ORDER BY atMs,rowid")
     fun events(id:String):List<WorkEventRow>
     @Query("UPDATE work_entries SET revision=revision+1 WHERE id=:id")
     fun touch(id:String):Int
