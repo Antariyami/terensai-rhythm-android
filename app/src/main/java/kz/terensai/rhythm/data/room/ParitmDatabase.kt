@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
     entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
@@ -68,6 +68,15 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4,5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN pm1StaffId TEXT")
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN pm1NameSnapshot TEXT")
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN suiteNameSnapshot TEXT")
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN programmeNameSnapshot TEXT")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -75,7 +84,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5).build().also { instance = it }
             }
     }
 }
