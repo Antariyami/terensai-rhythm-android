@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
     entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
@@ -92,6 +92,15 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6,7) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN sourceStageId TEXT")
+                db.execSQL("""CREATE UNIQUE INDEX IF NOT EXISTS
+                    index_work_entries_sessionId_staffId_sourceStageId
+                    ON work_entries(sessionId,staffId,sourceStageId)""")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -99,7 +108,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7).build().also { instance = it }
             }
     }
 }
