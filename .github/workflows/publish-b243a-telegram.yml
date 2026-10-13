@@ -1,0 +1,48 @@
+name: PARITM B2.4.3a — Telegram Report QA
+on:
+  push:
+    branches: [feature/b2-4-3a-telegram-reports]
+    paths: ['.github/workflows/publish-b243a-telegram.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Test code and build APK
+        run: gradle --no-daemon -PparitmPreview243a :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Store APK for fallback
+        uses: actions/upload-artifact@v4
+        with:
+          name: paritm-b243a-telegram-qa-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish pre-release if permissions allow
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=v0.2.4.3a-telegram-qa-1
+          FILE=paritm-b243a-telegram-qa.apk
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+              --title "ПАРИТМ B2.4.3a · отчёт для Telegram" \
+              --notes "S13 Reports: compact Telegram report by programme/PM1/suite/day, completed steamings counts only; copy and Android share, existing WhatsApp export unchanged. External works without visit IDs remain separate blocks to avoid false grouping. Separate QA application ID kz.paritm.b243a.preview; no cross-package data migration."
+          fi

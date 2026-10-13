@@ -287,7 +287,17 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             else -> B23ShiftScreen(
                 sessions=items,pending=pending,notice=notice,
                 onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders
+                onMasters={showingMasters=true},
+                onWork={showingWork=true},
+                onJournal={showingJournal=true},
+                leaders=leaders,
+                workItems=myWorks,
+                onOpenWork={id->
+                    creatingNewWork=false
+                    personalWorkId=id
+                    personalWork=myWorks.firstOrNull{it.row.id==id}
+                    showingWork=true
+                }
             )
         }
     }
