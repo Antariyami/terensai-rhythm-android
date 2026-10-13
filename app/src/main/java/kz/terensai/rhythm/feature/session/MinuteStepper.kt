@@ -27,7 +27,7 @@ fun MinuteStepper(
         horizontalArrangement=Arrangement.spacedBy(5.dp)) {
         listOf(-5,-1).forEach { delta->
             val next=QuickMinuteRules.adjust(values,index,delta)
-            OutlinedButton(onClick={if(next!=null) ({onUpdate(next)}) else ({})},
+            OutlinedButton(onClick={ if (next != null) onUpdate(next) },
                 enabled=next!=null,modifier=Modifier.size(width=47.dp,height=52.dp),
                 contentPadding=PaddingValues(0.dp),shape=RoundedCornerShape(12.dp)) {
                 Text(delta.toString(),fontSize=15.sp,color=if(next!=null) C.amber else C.muted)
@@ -50,7 +50,7 @@ fun MinuteStepper(
         )
         listOf(1,5).forEach { delta->
             val next=QuickMinuteRules.adjust(values,index,delta)
-            OutlinedButton(onClick={if(next!=null) ({onUpdate(next)}) else ({})},
+            OutlinedButton(onClick={ if (next != null) onUpdate(next) },
                 enabled=next!=null,modifier=Modifier.size(width=47.dp,height=52.dp),
                 contentPadding=PaddingValues(0.dp),shape=RoundedCornerShape(12.dp)) {
                 Text("+$delta",fontSize=15.sp,color=if(next!=null) C.amber else C.muted)
