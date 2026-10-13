@@ -45,7 +45,7 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         val row=dao.entry(id)?:return@withContext null
         projection(row,dao.events(id),now())
     }
-    suspend fun all(masterId:String):List<WorkView>=withContext(Dispatchers.IO){
+    suspend fun all(masterId:String):List<WorkView> = withContext(Dispatchers.IO){
         dao.forMaster(masterId).map {projection(it,dao.events(it.id),now())}
     }
     suspend fun command(id:String,kind:String):WorkView=withContext(Dispatchers.IO){
