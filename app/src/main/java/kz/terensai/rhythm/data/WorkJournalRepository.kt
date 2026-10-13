@@ -39,7 +39,7 @@ class WorkJournalRepository(
             db.withTransaction {
                 val row=db.work().entry(workId) ?: error("Запись не найдена")
                 require(row.staffId==masterId){"Можно исправлять только собственную запись"}
-                val work=repo.get(workId) ?: error("Запись не найдена")
+                val work=repo.projectForJournal(row,db.work().events(workId),clock())
                 check(work.state=="COMPLETED"){"Исправлять факт можно только после завершения"}
                 val before=db.work().corrections(workId)
                 val original=(work.elapsedMs + 30000L)/60000L
@@ -50,7 +50,7 @@ class WorkJournalRepository(
                     UUID.randomUUID().toString(),workId,stamp,current,minutes,cleanReason
                 ))
                 check(db.work().touch(workId)==1)
-                JournalLine(repo.get(workId)!!,db.work().corrections(workId))
+                JournalLine(repo.projectForJournal(row,db.work().events(workId),clock()),db.work().corrections(workId))
             }
         }
 }
