@@ -98,7 +98,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             delay(1000L)
         }
     }
-    fun refreshAfter(action: suspend () -> SavedSession, isCreation: Boolean = false) {
+    fun refreshAfter(action: suspend () -> SavedSession, isCreation: Boolean = false, stageAction:Boolean=false) {
         if (pending) return
         pending = true
         scope.launch {
@@ -111,7 +111,9 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     creationRequestId = UUID.randomUUID().toString()
                     selectedPm1=null
                 }
-                notice = if (changed.finishedAtMs == null) "Сохранено в базе" else "Программа завершена и сохранена"
+                notice = if(stageAction) "Этап сохранён в программе. Учёт личного парения — в Журнале работы."
+                    else if(changed.finishedAtMs==null) "Программа сохранена в базе"
+                    else "Программа завершена и сохранена"
             } catch (e: Exception) {
                 notice = "Ошибка: " + (e.message ?: "проверь действие")
             } finally { pending = false }
@@ -294,7 +296,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                         onBack={ selectedId=null },
                         onCommand={ stageId,kind ->
                             val id=session.id
-                            refreshAfter(action={ repo.perform(id,stageId,kind) })
+                            refreshAfter(action={ repo.perform(id,stageId,kind) },stageAction=true)
                         },
                         onFinish={
                             val id=session.id
