@@ -44,7 +44,7 @@ fun B22PrepareScreen(
     val values = minutes.map { it.toIntOrNull() }
     val route = PilotTanysuPlan.evaluate(values)
     val guestNumber = if (guests.isBlank()) null else guests.toIntOrNull()
-    val guestsValid = guests.isBlank() || (guestNumber != null && guestNumber in 1..20)
+    val guestsValid = guests.isBlank() || (guestNumber != null && guestNumber in 1..30)
     val shape = RoundedCornerShape(18.dp)
 
     Box(Modifier.fillMaxSize().background(C.canvas)) {
@@ -69,10 +69,11 @@ fun B22PrepareScreen(
                 Text("Параметры",color=C.white,fontWeight=FontWeight.SemiBold)
                 SuitePicker(selected=suite,onSelected={suite=it})
                 if(staff.isNotEmpty()) B241Pm1Picker(staff,selectedPm1,onPm1Selected)
+                Text("Вместимость сьюта — ориентир; фактическое количество гостей можно указать вручную.",color=C.secondary,fontSize=12.sp)
                 OutlinedTextField(guests,{guests=it.filter(Char::isDigit).take(2)},
                     modifier=Modifier.fillMaxWidth(),singleLine=true,
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
-                    isError=!guestsValid,label={Text("Количество гостей (1–20)")})
+                    isError=!guestsValid,label={Text("Гостей с детьми (1–30)")})
             }
         }
         Text("Личный пилотный маршрут",color=C.cream,

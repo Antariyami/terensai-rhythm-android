@@ -11,16 +11,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.data.WorkView
 import kz.terensai.rhythm.data.SavedSession
+import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 
 @Composable
 fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,notice:String?,
-    onBack:()->Unit,onCreate:(String?,String,Int)->Unit,onAction:(String)->Unit,onNew:()->Unit){
+    onBack:()->Unit,onCreate:(String?,String,String,Int,String?,String?,String?)->Unit,
+    onAction:(String)->Unit,onNew:()->Unit,masters:List<StaffRow>){
     var sessionId by remember {mutableStateOf<String?>(null)}
     var role by remember {mutableStateOf("PM")}
     var procedure by remember {mutableStateOf("INDIVIDUAL_STEAM")}
     var minutes by remember {mutableStateOf("45")}
     var expanded by remember {mutableStateOf(false)}
+    var chosenPm1 by remember { mutableStateOf<String?>(null) }
+    var pmExpanded by remember { mutableStateOf(false) }
+    var suite by remember { mutableStateOf("") }
+    var programme by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().background(C.canvas).verticalScroll(rememberScrollState())
         .padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         TextButton(onClick=onBack){Text("‹ Моя смена",color=C.amber)}
@@ -32,15 +38,34 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
             Box {
                 OutlinedButton(onClick={expanded=true},modifier=Modifier.fillMaxWidth()){
                     Text(sessions.firstOrNull{it.id==sessionId}?.let{it.programmeTitle+" · "+(it.metadata.suite?:"Без сьюта")}
-                        ?: "Участие без локальной программы",color=C.white)
+                        ?: "Участвовать в программе другого PM1",color=C.white)
                 }
                 DropdownMenu(expanded=expanded,onDismissRequest={expanded=false}){
-                    DropdownMenuItem(text={Text("Без локальной программы")},onClick={sessionId=null;expanded=false})
+                    DropdownMenuItem(text={Text("У другого PM1 · внешняя программа")},onClick={sessionId=null;expanded=false})
                     sessions.forEach {session->
                         DropdownMenuItem(text={Text(session.programmeTitle+" · "+(session.metadata.suite?:"Без сьюта"))},
                             onClick={sessionId=session.id;expanded=false})
                     }
                 }
+            }
+            if(sessionId==null){
+                Text("Ведущий программы · PM1",color=C.cream)
+                Box {
+                    OutlinedButton(onClick={pmExpanded=true},modifier=Modifier.fillMaxWidth()){
+                        Text(masters.firstOrNull{it.id==chosenPm1}?.displayName ?: "Выбрать PM1 ▾",color=C.white)
+                    }
+                    DropdownMenu(expanded=pmExpanded,onDismissRequest={pmExpanded=false}){
+                        masters.forEach { master ->
+                            DropdownMenuItem(text={Text(master.displayName)},onClick={
+                                chosenPm1=master.id;pmExpanded=false
+                            })
+                        }
+                    }
+                }
+                SuitePicker(selected=suite,onSelected={suite=it})
+                OutlinedTextField(value=programme,onValueChange={programme=it.take(80)},
+                    modifier=Modifier.fillMaxWidth(),label={Text("Название программы (необязательно)")})
+                Text("Дата и начало работы фиксируются при нажатии «Начать процедуру».",color=C.secondary)
             }
             Text("Моя роль",color=C.cream)
             Row {
@@ -66,12 +91,21 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
                     modifier=Modifier.weight(1f),singleLine=true)
                 OutlinedButton(onClick={minutes=((minutes.toIntOrNull()?:45)+5).coerceAtMost(240).toString()}){Text("+5")}
             }
-            Button(enabled=!pending && (minutes.toIntOrNull()?:0) in 1..240,
-                onClick={onCreate(sessionId,role,minutes.toInt())},modifier=Modifier.fillMaxWidth()){
+            Button(enabled=!pending && (minutes.toIntOrNull()?:0) in 1..240 && (sessionId!=null || (chosenPm1!=null && suite.isNotBlank())),
+                onClick={onCreate(sessionId,role,procedure,minutes.toInt(),chosenPm1,suite,programme)},modifier=Modifier.fillMaxWidth()){
                 Text("Создать процедуру")
             }
         }else{
             Text("Моя роль: ${work.row.role}",color=C.cream)
+            Text("Процедура: ${work.row.procedureType}",color=C.cream)
+            if(work.row.pm1NameSnapshot!=null) Text("PM1: ${work.row.pm1NameSnapshot}",color=C.cream)
+            if(work.row.suiteNameSnapshot!=null) Text("Сьют: ${work.row.suiteNameSnapshot}",color=C.cream)
+            val startedAt=work.events.firstOrNull{it.kind=="START"}?.atMs
+            if(startedAt!=null) {
+                val stamp=java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale("ru","RU"))
+                    .format(java.util.Date(startedAt))
+                Text("Начало процедуры: $stamp",color=C.secondary)
+            }
             Text("План: ${work.row.plannedMs/60000} мин",color=C.amber)
             Text("Факт: ${formatElapsed(work.elapsedMs)}",fontSize=37.sp,color=C.fact)
             Text("Состояние: "+when(work.state){"READY"->"ожидает запуска";"RUNNING"->"идёт";"PAUSED"->"пауза";else->"завершена"},

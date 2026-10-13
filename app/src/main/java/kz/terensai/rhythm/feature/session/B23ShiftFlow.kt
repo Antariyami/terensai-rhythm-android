@@ -116,15 +116,16 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
         when {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
             showingWork -> B242WorkScreen(
-                sessions=items,work=personalWork,pending=pending,notice=notice,
+                sessions=items,work=personalWork,pending=pending,notice=notice,masters=masters,
                 onBack={showingWork=false},
-                onCreate={session,role,minutes->
+                onCreate={session,role,procedure,minutes,leader,suiteName,programmeName->
                     val myId=masters.firstOrNull{it.isMyProfile}?.id
                     if(myId==null) notice="Сначала выбери свой профиль в разделе «Мастера»"
                     else scope.launch {
                         pending=true
                         try {
-                            val created=workRepo.create(myId,session,role=role,plannedMinutes=minutes)
+                            val created=workRepo.create(myId,session,role=role,procedure=procedure,plannedMinutes=minutes,
+                                externalPm1Id=leader,externalSuite=suiteName,externalProgramme=programmeName)
                             personalWorkId=created.row.id; personalWork=created;notice="Процедура сохранена"
                         }catch(e:Exception){notice="Ошибка: "+e.message}
                         finally{pending=false}

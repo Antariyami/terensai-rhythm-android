@@ -26,8 +26,15 @@ object SuiteNames {
 class SuiteSettingsStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("paritm_suite_settings_v1",Context.MODE_PRIVATE)
     private val key = "suite_names"
+    companion object {
+        /** Editable initial names. Suite capacities are guidance, not hard limits. */
+        val INITIAL_SUITES = listOf(
+            "1 · Көркемдік", "2 · Өркендеу", "3 · Сәттілік",
+            "4 · Байлық", "5 · Амандық"
+        )
+    }
     fun load(): List<String> = try {
-        val raw = JSONArray(prefs.getString(key, "[]") ?: "[]")
+        val raw = JSONArray(prefs.getString(key, null) ?: JSONArray(INITIAL_SUITES).toString())
         var result = emptyList<String>()
         for (i in 0 until raw.length()) {
             result = SuiteNames.add(result, raw.optString(i))
