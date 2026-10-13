@@ -33,6 +33,7 @@ fun B23ShiftScreen(
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
     onMasters: () -> Unit = {},
+    onWork: () -> Unit = {},
     leaders: Map<String,String> = emptyMap()
 ) {
     Box(Modifier.fillMaxSize().background(C.canvas)) {
@@ -48,6 +49,9 @@ fun B23ShiftScreen(
             }
             OutlinedButton(onClick=onMasters,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Мастера · личный профиль и справочник",color=C.amber)
+            }
+            OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+                Text("Моё участие · личная процедура",color=C.amber)
             }
             Text("ПАРИТМ  ·  МОЯ СМЕНА",color=C.bronze,
                 fontWeight=FontWeight.SemiBold,fontSize=12.sp,letterSpacing=2.sp)
