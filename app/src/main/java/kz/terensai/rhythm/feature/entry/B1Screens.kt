@@ -57,7 +57,8 @@ import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
 
 @Composable
-fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit) {
+fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit,
+  showQa:Boolean=false,openQa:()->Unit={}) {
   var screen by rememberSaveable { mutableStateOf("welcome") }
   BackHandler(enabled=screen=="programmes") { screen="welcome" }
   if (screen=="welcome") {
@@ -70,7 +71,9 @@ fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit) {
     ProgrammesScreen(
       hasActiveSession=hasOldActiveSession,
       onBack={screen="welcome"},
-      onPilot=openPilotTimer
+      onPilot=openPilotTimer,
+      showQa=showQa,
+      onQa=openQa
     )
   }
 }
@@ -134,7 +137,8 @@ private fun WelcomeScreen(
 
 @Composable
 private fun ProgrammesScreen(
-  hasActiveSession:Boolean,onBack:()->Unit,onPilot:()->Unit
+  hasActiveSession:Boolean,onBack:()->Unit,onPilot:()->Unit,
+  showQa:Boolean,onQa:()->Unit
 ) {
   var selectionId by rememberSaveable { mutableStateOf<String?>(null) }
   val chosen=ProgrammeCatalog.get(selectionId ?: "")
@@ -173,6 +177,13 @@ private fun ProgrammesScreen(
       Spacer(Modifier.height(8.dp))
       ParitmPrimaryButton("Продолжить текущую сессию",onPilot,
         modifier=Modifier.fillMaxWidth())
+    }
+    if (showQa) {
+      Spacer(Modifier.height(10.dp))
+      OutlinedButton(onClick=onQa,modifier=Modifier.fillMaxWidth().heightIn(min=54.dp),
+        shape=RoundedCornerShape(18.dp)) {
+        Text("Проверка B2.1 · сохранение сессии",color=C.amber)
+      }
     }
     Spacer(Modifier.height(10.dp))
     Text("Архив, отчёты и аналитика появятся в следующих версиях.",
