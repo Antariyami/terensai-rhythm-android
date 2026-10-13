@@ -32,7 +32,8 @@ import java.util.UUID
  * Room-backed session continues to advance from its own timestamps.
  */
 @Composable
-fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
+fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
+    initialJournal: Boolean=false, initialMasters: Boolean=false) {
     val context = LocalContext.current
     val repo = remember(context) {
         SessionRepository(
@@ -45,7 +46,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     val journalRepo=remember(context){WorkJournalRepository(
         ParitmDatabase.get(context),LocalInstallIdentity.get(context))}
     val scope = rememberCoroutineScope()
-    var showingJournal by rememberSaveable{mutableStateOf(false)}
+    var showingJournal by rememberSaveable{mutableStateOf(initialJournal)}
     var journalLines by remember{mutableStateOf<List<JournalLine>>(emptyList())}
     var programmeHistory by remember{mutableStateOf<List<SavedSession>>(emptyList())}
     var showingWork by rememberSaveable { mutableStateOf(false) }
@@ -56,7 +57,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
 
     var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
     var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
-    var showingMasters by rememberSaveable {mutableStateOf(false)}
+    var showingMasters by rememberSaveable {mutableStateOf(initialMasters)}
     var selectedPm1 by rememberSaveable {mutableStateOf<String?>(null)}
 
     var items by remember { mutableStateOf<List<SavedSession>>(emptyList()) }
