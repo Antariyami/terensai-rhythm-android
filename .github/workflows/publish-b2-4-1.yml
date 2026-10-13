@@ -1,0 +1,42 @@
+name: PARITM B2.4.1 — S10 S11 PM1 QA
+on:
+  push:
+    branches: [feature/b2-4-1-masters-pm1]
+    paths: ['.github/workflows/publish-b2-4-1.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Test and build
+        run: gradle --no-daemon -PparitmPreview241 :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Publish QA build if green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v0.2.4.1-b241-preview-1"
+          FILE="paritm-b2-4-1-pm1-masters-qa.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Already published" >&2
+            exit 1
+          fi
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+            --title "ПАРИТМ B2.4.1 · Мастера и PM1" \
+            --notes "QA separate application id kz.paritm.b241.preview. S10 personal master directory; S11 PM1 assignment during preparation, historical handover model and additive Room 2→3 migration. No S12 personal work timer or S13 work log yet. Offline app, future sync only. QA installation has independent data; previous versions unchanged."
