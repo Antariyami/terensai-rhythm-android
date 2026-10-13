@@ -22,16 +22,18 @@ class ProgrammeStageCandidatesTest {
         val s=SavedSession("session","Танысу",ts,null,progress(StageStatus.COMPLETED,ts),4,
             kz.terensai.rhythm.data.room.SessionMetadata(suite="2 · Өркендеу"))
         val stages=ProgrammeStageCandidates.of(listOf(s),today,zone)
-        assertEquals(1,stages.size)
-        assertEquals("COLLECTIVE_STEAM",stages.single().type)
-        assertEquals("steam1",stages.single().stageId)
+        assertEquals(2,stages.size)
+        assertEquals("COLLECTIVE_STEAM",stages.single{it.stageId=="steam1"}.type)
+        assertNull(stages.single{it.stageId=="rest"}.type)
         assertEquals(0,ProgrammeStageCandidates.of(listOf(s),today.plusDays(1),zone).size)
     }
     @Test fun pausedSkippedAndUnstartedStagesNotClaimedCompleted(){
         val paused=SavedSession("s","Tanysu",ts,null,progress(StageStatus.PAUSED,ts),2)
         val doneButNotStarted=SavedSession("q","Tanysu",ts,null,
             progress(StageStatus.COMPLETED,null),2)
-        assertTrue(ProgrammeStageCandidates.of(listOf(paused,doneButNotStarted),today,zone).isEmpty())
+        val history=ProgrammeStageCandidates.of(listOf(paused,doneButNotStarted),today,zone)
+        assertTrue(history.none{it.stageId=="steam1"})
+        assertEquals(2,history.count{it.stageId=="rest"})
         assertNull(ProgrammeStageCandidates.classify("Отдых гостей"))
         assertEquals("INDIVIDUAL_STEAM",ProgrammeStageCandidates.classify("Индивидуальное парение"))
     }
