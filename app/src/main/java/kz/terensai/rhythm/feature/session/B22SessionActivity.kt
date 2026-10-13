@@ -11,7 +11,7 @@ class B22SessionActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ParitmTheme {
-                if (BuildConfig.B23_QA || BuildConfig.B241_QA) {
+                if (BuildConfig.B23_QA || BuildConfig.B241_QA || BuildConfig.B242_QA) {
                     B23ShiftFlow(
                         onBack = { finish() },
                         initialNew = intent?.getBooleanExtra("prepare", false) == true
