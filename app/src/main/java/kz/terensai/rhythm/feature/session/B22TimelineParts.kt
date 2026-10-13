@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.domain.SessionProgress
 import kz.terensai.rhythm.domain.StageProgress
 import kz.terensai.rhythm.domain.StageStatus
+import kz.terensai.rhythm.domain.ScheduleOffsets
+import kz.terensai.rhythm.domain.ScheduleOffsetKind
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 
 internal fun formatElapsed(ms:Long):String {
@@ -77,9 +79,20 @@ internal fun TimelineCard(
         if(progress.elapsedWallClockMs>planMs)
             Text("Общее время сверх плана ${formatDelta(progress.elapsedWallClockMs-planMs)}",
                 color=C.overrun,fontWeight=FontWeight.Bold,fontSize=13.sp)
-        if(stage?.startDeltaMs!=null && stage.startDeltaMs!=0L)
-            Text("Сдвиг начала этапа: ${formatDelta(stage.startDeltaMs)}",
-                color=C.bronze,fontSize=13.sp)
+        if(stage?.startDeltaMs != null) {
+            val scheduleOffset = ScheduleOffsets.classify(stage.startDeltaMs)
+            when (scheduleOffset.kind) {
+                ScheduleOffsetKind.EARLY -> Text(
+                    "Опережение графика ${formatElapsed(scheduleOffset.absoluteMillis)}",
+                    color=C.fact,fontWeight=FontWeight.Medium,fontSize=13.sp
+                )
+                ScheduleOffsetKind.LATE -> Text(
+                    "Отставание от графика ${formatElapsed(scheduleOffset.absoluteMillis)}",
+                    color=C.overrun,fontWeight=FontWeight.Medium,fontSize=13.sp
+                )
+                ScheduleOffsetKind.ON_TIME -> Unit
+            }
+        }
         progress.stages.forEachIndexed { index,s->
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text(when(s.status) {

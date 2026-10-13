@@ -63,8 +63,7 @@ fun B22PrepareScreen(
             .border(1.dp,C.border,shape).padding(15.dp)) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("Параметры",color=C.white,fontWeight=FontWeight.SemiBold)
-                OutlinedTextField(suite,{suite=it.take(40)},modifier=Modifier.fillMaxWidth(),
-                    singleLine=true,label={Text("Сьют / место (необязательно)")})
+                SuitePicker(selected=suite,onSelected={suite=it})
                 OutlinedTextField(guests,{guests=it.filter(Char::isDigit).take(2)},
                     modifier=Modifier.fillMaxWidth(),singleLine=true,
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
@@ -73,28 +72,22 @@ fun B22PrepareScreen(
         }
         Text("Личный пилотный маршрут",color=C.cream,
             fontWeight=FontWeight.SemiBold,fontSize=19.sp)
-        Text("Минуты можно изменить до запуска. Это не утверждённый регламент TERENSAI.",
+        Text("Минуты меняются кнопками −1/+1, −5/+5 или вручную. План остаётся 180 минут. Это личный пилот, не регламент TERENSAI.",
             color=C.secondary,fontSize=13.sp,lineHeight=18.sp)
         PilotTanysuPlan.defaults.forEachIndexed { index, stage ->
-            Row(Modifier.fillMaxWidth().background(C.panel,shape)
-                .border(1.dp,C.border,shape).padding(10.dp),
-                verticalAlignment=Alignment.CenterVertically) {
-                Box(Modifier.size(34.dp).background(C.raised,RoundedCornerShape(10.dp)),
-                    contentAlignment=Alignment.Center) {
-                    Text((index+1).toString(),color=C.amber,fontWeight=FontWeight.Bold)
+            Column(Modifier.fillMaxWidth().background(C.panel,shape)
+                .border(1.dp,C.border,shape).padding(12.dp),
+                verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Box(Modifier.size(35.dp).background(C.raised,RoundedCornerShape(10.dp)),
+                        contentAlignment=Alignment.Center) {
+                        Text((index+1).toString(),color=C.amber,fontWeight=FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(stage.label,Modifier.weight(1f),fontSize=14.sp,color=C.white,
+                        lineHeight=18.sp)
                 }
-                Spacer(Modifier.width(10.dp))
-                Text(stage.label,Modifier.weight(1f),fontSize=14.sp,color=C.white,
-                    lineHeight=18.sp)
-                OutlinedTextField(
-                    value=minutes[index],onValueChange={v->
-                        minutes=minutes.toMutableList().also {
-                            it[index]=v.filter(Char::isDigit).take(3)
-                        }
-                    },modifier=Modifier.width(85.dp),singleLine=true,
-                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
-                    label={Text("мин")},isError=values[index]==null || values[index]!!<=0
-                )
+                MinuteStepper(values=minutes,index=index,onUpdate={minutes=it})
             }
         }
         Box(Modifier.fillMaxWidth().background(C.raised,shape).padding(14.dp)) {
