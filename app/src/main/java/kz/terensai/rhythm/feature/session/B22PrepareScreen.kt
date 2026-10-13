@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.R
+import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.feature.entry.ParitmAtmosphere
 import kz.terensai.rhythm.domain.PilotTanysuPlan
 import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
@@ -30,7 +31,10 @@ import kz.terensai.rhythm.ui.theme.ParitmColors as C
 @Composable
 fun B22PrepareScreen(
     notice: String?, pending: Boolean, onBack: () -> Unit,
-    onStart: (List<Int?>, String?, Int?) -> Unit
+    onStart: (List<Int?>, String?, Int?) -> Unit,
+    staff: List<StaffRow> = emptyList(),
+    selectedPm1: String? = null,
+    onPm1Selected: (String?) -> Unit = {}
 ) {
     var minutes by rememberSaveable {
         mutableStateOf(PilotTanysuPlan.defaults.map { it.minutes.toString() })
@@ -64,6 +68,7 @@ fun B22PrepareScreen(
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("Параметры",color=C.white,fontWeight=FontWeight.SemiBold)
                 SuitePicker(selected=suite,onSelected={suite=it})
+                if(staff.isNotEmpty()) B241Pm1Picker(staff,selectedPm1,onPm1Selected)
                 OutlinedTextField(guests,{guests=it.filter(Char::isDigit).take(2)},
                     modifier=Modifier.fillMaxWidth(),singleLine=true,
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
