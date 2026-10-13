@@ -1,5 +1,6 @@
 package kz.terensai.rhythm.data.room
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -25,7 +26,12 @@ data class SessionRow(
     val snapshotJson: String,
     /** Raw v0.1 journal/state, retained without making up absent timing data. */
     val legacyJson: String? = null,
-    val finishedAtMs: Long? = null
+    val finishedAtMs: Long? = null,
+    /** Random local install identity; never a phone identifier or external account. */
+    @ColumnInfo(defaultValue = "'legacy-local'") val originClientId: String = "legacy-local",
+    /** Monotonic local revision for future conflict detection (not yet synchronization). */
+    @ColumnInfo(defaultValue = "0") val localRevision: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val modifiedAtMs: Long = 0L
 )
 
 @Entity(
