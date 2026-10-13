@@ -47,6 +47,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     val scope = rememberCoroutineScope()
     var showingJournal by rememberSaveable{mutableStateOf(false)}
     var journalLines by remember{mutableStateOf<List<JournalLine>>(emptyList())}
+    var programmeHistory by remember{mutableStateOf<List<SavedSession>>(emptyList())}
     var showingWork by rememberSaveable { mutableStateOf(false) }
     var personalWorkId by rememberSaveable {mutableStateOf<String?>(null)}
     var personalWork by remember {mutableStateOf<WorkView?>(null)}
@@ -79,7 +80,10 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     masters = staffRepo.all()
                     val mine=masters.firstOrNull { it.isMyProfile }?.id
                     myWorks=if(mine!=null) workRepo.all(mine) else emptyList()
-                    if(showingJournal)journalLines=if(mine!=null)journalRepo.all(mine) else emptyList()
+                    if(showingJournal){
+                        journalLines=if(mine!=null)journalRepo.all(mine) else emptyList()
+                        programmeHistory=repo.allSessions()
+                    }
                     if(personalWorkId==null && !creatingNewWork) {
                         personalWorkId=myWorks.firstOrNull { it.state!="COMPLETED" }?.row?.id
                     }
@@ -137,6 +141,21 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             showingJournal -> B243JournalScreen(
                 masterName=masters.firstOrNull{it.isMyProfile}?.displayName?:"Мастер",
                 entries=journalLines,pending=pending,notice=notice,
+                programmeSessions=programmeHistory,
+                onAttributeStage={sessionId,stageId->
+                    val mine=masters.firstOrNull{it.isMyProfile}?.id
+                    if(mine==null)notice="Выбери свой профиль в разделе «Мастера»"
+                    else if(!pending)scope.launch{
+                        pending=true
+                        try {
+                            val result=workRepo.attributeCompletedStage(mine,sessionId,stageId)
+                            journalLines=journalRepo.all(mine)
+                            myWorks=workRepo.all(mine)
+                            notice="Парение учтено: ${result.row.procedureType}. Отчёты обновлены."
+                        }catch(e:Exception){notice="Ошибка учёта: "+e.message}
+                        finally{pending=false}
+                    }
+                },
                 onBack={showingJournal=false},
                 onOpenWork={id->
                     personalWorkId=id
