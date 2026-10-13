@@ -24,6 +24,9 @@ import kz.terensai.rhythm.data.JournalLine
 import kz.terensai.rhythm.data.WorkJournalLabels
 import kz.terensai.rhythm.data.WorkJournalReport
 import kz.terensai.rhythm.data.TelegramWorkReport
+import kz.terensai.rhythm.data.SavedSession
+import kz.terensai.rhythm.data.ProgrammeStageCandidates
+import kz.terensai.rhythm.data.ReportableProgrammeStage
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import java.time.LocalDate
 
@@ -39,7 +42,9 @@ fun B243JournalScreen(
     notice:String?,
     onBack:()->Unit,
     onCorrect:(String,Long,String)->Unit,
-    onOpenWork:(String)->Unit
+    onOpenWork:(String)->Unit,
+    programmeSessions:List<SavedSession> = emptyList(),
+    onAttributeStage:(String,String)->Unit = {_,_->}
 ) {
     val context=LocalContext.current
     var date by remember { mutableStateOf(LocalDate.now()) }
@@ -55,7 +60,9 @@ fun B243JournalScreen(
     var copied by remember { mutableStateOf(false) }
     var telegramCopied by remember { mutableStateOf(false) }
     var showTelegramPreview by remember { mutableStateOf(false) }
+    var stageToConfirm by remember {mutableStateOf<ReportableProgrammeStage?>(null)}
     val dayRows=entries.filter{WorkJournalReport.dayOf(it)==date}
+    val programmeStages=ProgrammeStageCandidates.of(programmeSessions,date)
     val suites=(listOf("Все сьюты")+dayRows.map{it.work.row.suiteNameSnapshot?:"Не указан"}.distinct().sorted())
     val leaders=(listOf("Все PM1")+dayRows.map{it.work.row.pm1NameSnapshot?:"Не указан"}.distinct().sorted())
     val filtered=dayRows.filter { line ->
@@ -67,6 +74,27 @@ fun B243JournalScreen(
     val done=WorkJournalReport.completed(filtered)
     val summary=WorkJournalReport.message(date,masterName,filtered)
     val telegram=TelegramWorkReport.message(date,masterName,filtered)
+
+    if(stageToConfirm!=null) AlertDialog(
+        onDismissRequest={stageToConfirm=null},
+        containerColor=C.panel,
+        title={Text("Учесть как моё парение?",color=C.white)},
+        text={Text(
+            "Подтверди, что ты лично выполнял ${stageToConfirm!!.stageTitle} " +
+            "в программе «${stageToConfirm!!.programmeTitle}». " +
+            "После подтверждения запись появится в личном отчёте. " +
+            "Если это парение уже записано вручную — не добавляй его второй раз.",
+            color=C.secondary
+        )},
+        confirmButton={TextButton(enabled=!pending,onClick={
+            val stage=stageToConfirm
+            stageToConfirm=null
+            if(stage!=null)onAttributeStage(stage.sessionId,stage.stageId)
+        }){Text("Да, учесть",color=C.amber)}},
+        dismissButton={TextButton(onClick={stageToConfirm=null}){
+            Text("Отмена",color=C.secondary)
+        }}
+    )
 
     if(correctionTarget!=null) AlertDialog(
         onDismissRequest={correctionTarget=null},
@@ -160,6 +188,38 @@ fun B243JournalScreen(
                 color=C.secondary,fontSize=11.sp)
         }
         if(notice!=null)Text(notice,color=C.amber)
+        Text("Записей личного журнала за день: ${dayRows.size} · сохранённых программ: ${programmeSessions.size}",
+            color=C.secondary,fontSize=12.sp)
+        Column(
+            Modifier.fillMaxWidth().background(C.panel,RoundedCornerShape(16.dp))
+                .padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)
+        ) {
+            Text("ЭТАПЫ БАННЫХ ПРОГРАММ",color=C.bronze,fontSize=12.sp)
+            Text("Завершённые парения из сохранённых программ. " +
+                "Они не входят в личный отчёт, пока ты не подтвердил своё участие.",
+                color=C.secondary,fontSize=12.sp)
+            if(programmeStages.isEmpty()) {
+                Text("За этот день завершённых этапов парения в программах нет.",
+                    color=C.secondary,fontSize=12.sp)
+            }
+            programmeStages.forEach { stage ->
+                val already=entries.any{line->
+                    line.work.row.sessionId==stage.sessionId &&
+                    line.work.row.sourceStageId==stage.stageId
+                }
+                Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text(stage.stageTitle,color=C.white,fontWeight=FontWeight.SemiBold)
+                    Text("${stage.programmeTitle} · ${stage.suiteName?:"Сьют не указан"} · " +
+                        WorkJournalReport.hhmm(stage.startedAtMs),
+                        color=C.secondary,fontSize=12.sp)
+                    OutlinedButton(enabled=!pending && !already,
+                        onClick={stageToConfirm=stage},modifier=Modifier.fillMaxWidth()){
+                        Text(if(already)"✓ Уже учтено в личном журнале"
+                             else "+ Учесть как моё парение",color=if(already)C.fact else C.amber)
+                    }
+                }
+            }
+        }
         if(filtered.isEmpty()){
             Text("За выбранную дату процедур по этим фильтрам нет.",color=C.secondary)
         }
