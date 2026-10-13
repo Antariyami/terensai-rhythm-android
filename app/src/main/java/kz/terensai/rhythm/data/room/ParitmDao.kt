@@ -31,6 +31,13 @@ interface ParitmDao {
     @Query("SELECT * FROM sessions WHERE finishedAtMs IS NULL AND legacyJson IS NULL ORDER BY startedAtMs DESC LIMIT 1")
     fun activeSession(): SessionRow?
 
+    @Query("SELECT * FROM sessions WHERE finishedAtMs IS NULL AND legacyJson IS NULL ORDER BY startedAtMs DESC, id DESC")
+    fun activeSessions(): List<SessionRow>
+
+    /** Increment local revision only when an actual action was committed. */
+    @Query("UPDATE sessions SET localRevision = localRevision + 1, modifiedAtMs = :atMs WHERE id = :id")
+    fun touchSession(id: String, atMs: Long): Int
+
     @Query("UPDATE sessions SET finishedAtMs = :atMs WHERE id = :id AND finishedAtMs IS NULL")
     fun finishSession(id: String, atMs: Long): Int
 
