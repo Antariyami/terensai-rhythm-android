@@ -58,14 +58,15 @@ import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
 
 @Composable
 fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit,
-  showQa:Boolean=false,openQa:()->Unit={}) {
+  showQa:Boolean=false,openQa:()->Unit={},showNewTimeline:Boolean=false) {
   var screen by rememberSaveable { mutableStateOf("welcome") }
   BackHandler(enabled=screen=="programmes") { screen="welcome" }
   if (screen=="welcome") {
     WelcomeScreen(
       hasActiveSession=hasOldActiveSession,
       onProgrammes={screen="programmes"},
-      onContinue= openPilotTimer
+      onContinue= openPilotTimer,
+      showNewTimeline=showNewTimeline
     )
   } else {
     ProgrammesScreen(
@@ -73,7 +74,8 @@ fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit,
       onBack={screen="welcome"},
       onPilot=openPilotTimer,
       showQa=showQa,
-      onQa=openQa
+      onQa=openQa,
+      showNewTimeline=showNewTimeline
     )
   }
 }
@@ -92,7 +94,8 @@ private fun BrandMark(modifier:Modifier=Modifier) {
 private fun WelcomeScreen(
   hasActiveSession:Boolean,
   onProgrammes:()->Unit,
-  onContinue:()->Unit
+  onContinue:()->Unit,
+  showNewTimeline:Boolean
 ) {
   Box(Modifier.fillMaxSize().background(C.canvas)) {
     ParitmAtmosphere()
@@ -125,7 +128,7 @@ private fun WelcomeScreen(
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick=onContinue,modifier=Modifier.fillMaxWidth().heightIn(min=54.dp),
           shape=RoundedCornerShape(18.dp)) {
-          Text("Продолжить пилотную сессию",color=C.white)
+          Text(if(showNewTimeline) "Продолжить сессию" else "Продолжить пилотную сессию",color=C.white)
         }
       }
       Spacer(Modifier.height(30.dp))
@@ -138,7 +141,8 @@ private fun WelcomeScreen(
 @Composable
 private fun ProgrammesScreen(
   hasActiveSession:Boolean,onBack:()->Unit,onPilot:()->Unit,
-  showQa:Boolean,onQa:()->Unit
+  showQa:Boolean,onQa:()->Unit,
+  showNewTimeline:Boolean
 ) {
   var selectionId by rememberSaveable { mutableStateOf<String?>(null) }
   val chosen=ProgrammeCatalog.get(selectionId ?: "")
@@ -202,7 +206,9 @@ private fun ProgrammesScreen(
           Text(displayDuration(programme.durationMinutes),color=C.amber)
           if(!pilot) Text("Сценарий пока не готов к запуску. Детальные этапы будут подключены в B2.",
             color=C.secondary)
-          else Text("Доступен старый пилотный таймер «Танысу». Новый план/факт появится в B2.",
+          else Text(if(showNewTimeline)
+            "Настройте личный пилотный маршрут на 180 минут: после запуска он будет сохранён в Room."
+            else "Доступен старый пилотный таймер «Танысу». Новый план/факт появится в B2.",
             color=C.secondary)
         }
       },
@@ -211,7 +217,7 @@ private fun ProgrammesScreen(
           selectionId=null
           if(pilot) onPilot()
         }) {
-          Text(if(pilot) "Открыть пилотный таймер" else "Понятно",color=C.amber)
+          Text(if(pilot) (if(showNewTimeline) "Настроить / продолжить" else "Открыть пилотный таймер") else "Понятно",color=C.amber)
         }
       },
       dismissButton={
