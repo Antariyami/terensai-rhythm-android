@@ -91,9 +91,8 @@ private fun WelcomeScreen(
   onProgrammes:()->Unit,
   onContinue:()->Unit
 ) {
-  Box(Modifier.fillMaxSize().background(
-    Brush.verticalGradient(listOf(Color(0xFF4D3021),C.canvas,C.ink))
-  )) {
+  Box(Modifier.fillMaxSize().background(C.canvas)) {
+    ParitmAtmosphere()
     Column(
       Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         .padding(horizontal=24.dp,vertical=32.dp),
@@ -101,14 +100,15 @@ private fun WelcomeScreen(
       verticalArrangement=Arrangement.Center
     ) {
       Spacer(Modifier.height(16.dp))
-      Box(Modifier.size(238.dp)
+      Box(Modifier.size(214.dp)
         .background(
-          Brush.radialGradient(listOf(Color(0x554BA12B),Color(0x223E2717),Color.Transparent)),
-          RoundedCornerShape(38.dp)
+          Brush.radialGradient(listOf(Color(0x66DAA45A),Color(0x22462922),Color.Transparent)),
+          RoundedCornerShape(46.dp)
         ),contentAlignment=Alignment.Center) {
-        BrandMark(Modifier.size(208.dp))
+        // B1.1: show the current bitmap at a less exaggerated scale; HQ original export still required.
+        BrandMark(Modifier.size(150.dp).clip(RoundedCornerShape(28.dp)))
       }
-      Spacer(Modifier.height(18.dp))
+      Spacer(Modifier.height(26.dp))
       Text("ПАРИТМ",color=C.cream,fontFamily=FontFamily.Serif,fontSize=40.sp,
         fontWeight=FontWeight.SemiBold,letterSpacing=3.sp)
       Text("Ритм банного мастерства",color=C.bronze,fontSize=16.sp,textAlign=TextAlign.Center)
@@ -156,7 +156,7 @@ private fun ProgrammesScreen(
     Spacer(Modifier.height(20.dp))
     Text("Выберите программу",color=C.white,fontSize=26.sp,fontWeight=FontWeight.Bold)
     Spacer(Modifier.height(6.dp))
-    Text("Шаблоны с неподтверждёнными этапами доступны только для просмотра.",
+    Text("Выберите сценарий. Неподтверждённые программы — пока только для просмотра.",
       color=C.secondary,fontSize=13.sp,lineHeight=19.sp)
     Spacer(Modifier.height(14.dp))
     LazyVerticalGrid(
@@ -175,12 +175,9 @@ private fun ProgrammesScreen(
         modifier=Modifier.fillMaxWidth())
     }
     Spacer(Modifier.height(10.dp))
-    Row(Modifier.fillMaxWidth().padding(bottom=10.dp),
-      horizontalArrangement=Arrangement.SpaceEvenly) {
-      Text("Программы",color=C.amber,fontSize=12.sp,fontWeight=FontWeight.Bold)
-      Text("Архив · скоро",color=C.muted,fontSize=12.sp)
-      Text("Аналитика · скоро",color=C.muted,fontSize=12.sp)
-    }
+    Text("Архив, отчёты и аналитика появятся в следующих версиях.",
+      color=C.muted,fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(bottom=10.dp),
+      textAlign=TextAlign.Center)
   }
 
   chosen?.let { programme ->
@@ -219,37 +216,41 @@ private fun ProgrammesScreen(
 private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
   val pilot=item.status==TemplateStatus.PILOT
   val shape=RoundedCornerShape(18.dp)
-  Column(
-    modifier=Modifier.fillMaxWidth().heightIn(min=176.dp)
+  Box(
+    modifier=Modifier.fillMaxWidth().height(196.dp)
       .clip(shape)
-      .background(Brush.verticalGradient(
-        if(pilot) listOf(Color(0xFF694422),C.raised,C.panel)
-        else listOf(Color(0xFF493023),C.panel)
-      ))
-      .border(width=1.dp,color=if(pilot) C.bronze else C.border,shape=shape)
+      .background(C.panel)
+      .border(1.dp,if(pilot) C.bronze else C.border,shape)
       .clickable(onClick=onClick)
       .semantics { contentDescription=item.name+", "+displayDuration(item.durationMinutes) }
-      .padding(12.dp),
-    verticalArrangement=Arrangement.SpaceBetween
   ) {
-    Row(verticalAlignment=Alignment.CenterVertically){
-      Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp))
-        .background(Color(0xAA1A120E)).border(1.dp,C.bronze,RoundedCornerShape(12.dp)),
-        contentAlignment=Alignment.Center) {
-        Text(item.monogram,color=C.cream,fontFamily=FontFamily.Serif,
-          fontSize=20.sp,fontWeight=FontWeight.SemiBold)
+    ParitmTileAtmosphere()
+    Text(item.monogram, color=C.bronze.copy(alpha=.12f), fontSize=80.sp,
+      fontFamily=FontFamily.Serif,fontWeight=FontWeight.Bold,
+      modifier=Modifier.align(Alignment.CenterEnd).padding(end=10.dp))
+    Column(Modifier.fillMaxSize().padding(13.dp),
+      verticalArrangement=Arrangement.SpaceBetween) {
+      Row(verticalAlignment=Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+          .background(Color(0xBB1A120E)).border(1.dp,C.bronze,RoundedCornerShape(12.dp)),
+          contentAlignment=Alignment.Center) {
+          Text(item.monogram,color=C.cream,fontFamily=FontFamily.Serif,
+            fontSize=20.sp,fontWeight=FontWeight.SemiBold)
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(if(pilot) "ПИЛОТ" else if(item.status==TemplateStatus.PREVIEW) "ПРЕВЬЮ" else "ЧЕРНОВИК",
+          color=if(pilot) C.success else C.secondary,fontSize=10.sp,
+          fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis)
       }
-      Spacer(Modifier.width(6.dp))
-      Text(
-        if(pilot) "ПИЛОТ" else if(item.status==TemplateStatus.PREVIEW) "ПРЕВЬЮ" else "ЧЕРНОВИК",
-        color=if(pilot) C.success else C.muted,fontSize=10.sp
-      )
+      Column {
+        Text(item.name,color=C.white,fontSize=19.sp,fontWeight=FontWeight.Bold,
+          maxLines=1,overflow=TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
+        Text(displayDuration(item.durationMinutes),color=C.amber,fontSize=14.sp)
+        Spacer(Modifier.height(5.dp))
+        Text(item.structure,color=C.secondary,fontSize=12.sp,
+          maxLines=2,overflow=TextOverflow.Ellipsis,lineHeight=16.sp)
+      }
     }
-    Spacer(Modifier.height(16.dp))
-    Text(item.name,color=C.white,fontSize=18.sp,fontWeight=FontWeight.Bold,
-      maxLines=1,overflow=TextOverflow.Ellipsis)
-    Text(displayDuration(item.durationMinutes),color=C.amber,fontSize=13.sp)
-    Text(item.structure,color=C.secondary,fontSize=12.sp,
-      maxLines=2,overflow=TextOverflow.Ellipsis,lineHeight=15.sp)
   }
 }
