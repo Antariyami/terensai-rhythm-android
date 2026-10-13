@@ -18,7 +18,11 @@ data class WorkRow(
     val plannedMs:Long,
     val createdAtMs:Long,
     val originClientId:String,
-    val revision:Long=0L
+    val revision:Long=0L,
+    val pm1StaffId:String?=null,
+    val pm1NameSnapshot:String?=null,
+    val suiteNameSnapshot:String?=null,
+    val programmeNameSnapshot:String?=null
 )
 
 @Entity(tableName="work_events",foreignKeys=[
