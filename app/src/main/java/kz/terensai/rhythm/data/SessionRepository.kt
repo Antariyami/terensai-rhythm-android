@@ -25,7 +25,9 @@ data class SavedSession(
     val finishedAtMs: Long?,
     val progress: SessionProgress,
     val eventCount: Int,
-    val metadata: SessionMetadata = SessionMetadata()
+    val metadata: SessionMetadata = SessionMetadata(),
+    val originClientId: String = "legacy-local",
+    val localRevision: Long = 0L
 )
 
 /**
@@ -35,26 +37,52 @@ data class SavedSession(
  */
 class SessionRepository(
     private val database: ParitmDatabase,
-    private val clock: Clock = Clock { System.currentTimeMillis() }
+    private val clock: Clock = Clock { System.currentTimeMillis() },
+    private val originClientId: String = "local-qa"
 ) {
     private val dao = database.records()
 
-    suspend fun start(plan: ProgramPlan, metadata: SessionMetadata = SessionMetadata()): SavedSession = withContext(Dispatchers.IO) {
+    companion object { const val MAX_ACTIVE_SESSIONS = 5 }
+
+    /**
+     * [requestId] is stable for a single user's Start tap, so retries restore that
+     * SAME session, but two deliberate Start actions create separate programmes.
+     * Room transactions serialize count/check/insert to enforce the five-session cap.
+     */
+    suspend fun start(
+        plan: ProgramPlan,
+        metadata: SessionMetadata = SessionMetadata(),
+        requestId: String = UUID.randomUUID().toString()
+    ): SavedSession = withContext(Dispatchers.IO) {
+        require(requestId.isNotBlank())
         database.withTransaction {
-            val existing = dao.activeSession()
-            if (existing != null) return@withTransaction read(existing)
+            val existing = dao.session(requestId)
+            if (existing != null) {
+                check(existing.legacyJson == null) { "This session ID belongs to a legacy record" }
+                return@withTransaction read(existing)
+            }
+            check(dao.activeSessionCount() < MAX_ACTIVE_SESSIONS) {
+                "Достигнут предел — 5 одновременно активных программ"
+            }
             val now = clock.epochMillis().coerceAtLeast(1L)
             val row = SessionRow(
-                id = UUID.randomUUID().toString(),
+                id = requestId,
                 templateId = plan.id,
                 templateTitle = plan.title,
                 startedAtMs = now,
                 plannedDurationMs = plan.plannedDurationMs,
-                snapshotJson = ProgramSnapshotCodec.encode(plan.snapshot(), metadata)
+                snapshotJson = ProgramSnapshotCodec.encode(plan.snapshot(), metadata),
+                originClientId = originClientId,
+                localRevision = 0,
+                modifiedAtMs = now
             )
             dao.startSession(row)
             read(row)
         }
+    }
+
+    suspend fun activeSessions(): List<SavedSession> = withContext(Dispatchers.IO) {
+        dao.activeSessions().map { read(it) }
     }
 
     suspend fun active(): SavedSession? = withContext(Dispatchers.IO) {
@@ -91,7 +119,8 @@ class SessionRepository(
                 EventRow(commandId, sessionId, stageId, command.name, now)
             )
             check(inserted != -1L) { "An event ID is already in use" }
-            read(row)
+            check(dao.touchSession(sessionId, now) == 1)
+            read(dao.session(sessionId)!!)
         }
     }
 
@@ -108,6 +137,7 @@ class SessionRepository(
                 val latest = dao.events(sessionId).maxOfOrNull { it.atMs } ?: row.startedAtMs
                 val ended = maxOf(clock.epochMillis(), latest, row.startedAtMs)
                 check(dao.finishSession(sessionId, ended) == 1)
+                check(dao.touchSession(sessionId, ended) == 1)
             }
             read(dao.session(sessionId)!!)
         }
@@ -125,7 +155,8 @@ class SessionRepository(
         )
         return SavedSession(
             row.id, row.templateTitle, row.startedAtMs,
-            row.finishedAtMs, progress, events.size, ProgramSnapshotCodec.metadata(row.snapshotJson)
+            row.finishedAtMs, progress, events.size, ProgramSnapshotCodec.metadata(row.snapshotJson),
+            row.originClientId, row.localRevision
         )
     }
 }
