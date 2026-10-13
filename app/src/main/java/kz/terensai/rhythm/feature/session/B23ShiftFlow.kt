@@ -130,6 +130,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                         finally{pending=false}
                     }
                 },
+                onNew={personalWorkId=null;personalWork=null},
                 onAction={kind->
                     val id=personalWorkId
                     if(id!=null)scope.launch{
