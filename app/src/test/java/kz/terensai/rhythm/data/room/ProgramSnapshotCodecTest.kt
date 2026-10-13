@@ -20,6 +20,19 @@ class ProgramSnapshotCodecTest {
         assertEquals(Track.MASTER, copied.stages[1].track)
     }
 
+    @Test fun sessionMetadataRoundtripsWithoutChangingProgramme() {
+        val original=ProgramPlan("x","Pilot",180000L,listOf(
+            StagePlan("one","First",Track.GUEST,0,180000L)
+        ))
+        val stored=ProgramSnapshotCodec.encode(original,
+            SessionMetadata("Оркендеу",4))
+        assertEquals(original,ProgramSnapshotCodec.decode(stored))
+        assertEquals("Оркендеу",ProgramSnapshotCodec.metadata(stored).suite)
+        assertEquals(4,ProgramSnapshotCodec.metadata(stored).guestCount)
+        val old=ProgramSnapshotCodec.encode(original)
+        assertNull(ProgramSnapshotCodec.metadata(old).suite)
+    }
+
     @Test fun unknownSnapshotSchemaIsRejected() {
         try {
             ProgramSnapshotCodec.decode(

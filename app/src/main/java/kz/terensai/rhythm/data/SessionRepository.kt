@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import kz.terensai.rhythm.data.room.EventRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.ProgramSnapshotCodec
+import kz.terensai.rhythm.data.room.SessionMetadata
 import kz.terensai.rhythm.data.room.SessionRow
 import kz.terensai.rhythm.domain.Clock
 import kz.terensai.rhythm.domain.EventKind
@@ -23,7 +24,8 @@ data class SavedSession(
     val startedAtMs: Long,
     val finishedAtMs: Long?,
     val progress: SessionProgress,
-    val eventCount: Int
+    val eventCount: Int,
+    val metadata: SessionMetadata = SessionMetadata()
 )
 
 /**
@@ -37,7 +39,7 @@ class SessionRepository(
 ) {
     private val dao = database.records()
 
-    suspend fun start(plan: ProgramPlan): SavedSession = withContext(Dispatchers.IO) {
+    suspend fun start(plan: ProgramPlan, metadata: SessionMetadata = SessionMetadata()): SavedSession = withContext(Dispatchers.IO) {
         database.withTransaction {
             val existing = dao.activeSession()
             if (existing != null) return@withTransaction read(existing)
@@ -48,7 +50,7 @@ class SessionRepository(
                 templateTitle = plan.title,
                 startedAtMs = now,
                 plannedDurationMs = plan.plannedDurationMs,
-                snapshotJson = ProgramSnapshotCodec.encode(plan.snapshot())
+                snapshotJson = ProgramSnapshotCodec.encode(plan.snapshot(), metadata)
             )
             dao.startSession(row)
             read(row)
@@ -98,6 +100,11 @@ class SessionRepository(
             val row = dao.session(sessionId) ?: error("Session not found")
             check(row.legacyJson == null) { "Cannot finish legacy archive record" }
             if (row.finishedAtMs == null) {
+                val projected = read(row)
+                check(projected.progress.stages.all {
+                    it.status == kz.terensai.rhythm.domain.StageStatus.COMPLETED ||
+                        it.status == kz.terensai.rhythm.domain.StageStatus.SKIPPED
+                }) { "Finish or skip all stages before ending the session" }
                 val latest = dao.events(sessionId).maxOfOrNull { it.atMs } ?: row.startedAtMs
                 val ended = maxOf(clock.epochMillis(), latest, row.startedAtMs)
                 check(dao.finishSession(sessionId, ended) == 1)
@@ -118,7 +125,7 @@ class SessionRepository(
         )
         return SavedSession(
             row.id, row.templateTitle, row.startedAtMs,
-            row.finishedAtMs, progress, events.size
+            row.finishedAtMs, progress, events.size, ProgramSnapshotCodec.metadata(row.snapshotJson)
         )
     }
 }

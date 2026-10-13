@@ -10,6 +10,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kz.terensai.rhythm.BuildConfig
 import kz.terensai.rhythm.feature.qa.B21QaActivity
+import kz.terensai.rhythm.feature.session.B22SessionActivity
+import kz.terensai.rhythm.data.SessionRepository
+import kz.terensai.rhythm.data.room.ParitmDatabase
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import kz.terensai.rhythm.MainActivity
 import kz.terensai.rhythm.ui.theme.ParitmTheme
 
@@ -24,7 +29,8 @@ class EntryActivity: ComponentActivity() {
       ParitmTheme {
         ParitmB1Root(
           hasOldActiveSession = oldSessionActive,
-          openPilotTimer = { startActivity(Intent(this,MainActivity::class.java)) },
+          openPilotTimer = { startActivity(Intent(this, if (BuildConfig.B22_QA) B22SessionActivity::class.java else MainActivity::class.java)) },
+          showNewTimeline = BuildConfig.B22_QA,
           showQa = BuildConfig.B21_QA,
           openQa = { startActivity(Intent(this,B21QaActivity::class.java)) }
         )
@@ -33,7 +39,18 @@ class EntryActivity: ComponentActivity() {
   }
   override fun onResume() {
     super.onResume()
-    oldSessionActive = getSharedPreferences("rhythm_state_v1",MODE_PRIVATE)
-      .getLong("program",0L)>0L
+    if (BuildConfig.B22_QA) {
+      lifecycleScope.launch {
+        try {
+          oldSessionActive = SessionRepository(ParitmDatabase.get(this@EntryActivity))
+            .active()!=null
+        } catch (_: Exception) {
+          oldSessionActive = false
+        }
+      }
+    } else {
+      oldSessionActive = getSharedPreferences("rhythm_state_v1",MODE_PRIVATE)
+        .getLong("program",0L)>0L
+    }
   }
 }
