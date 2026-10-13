@@ -17,6 +17,8 @@ import kz.terensai.rhythm.data.SessionRepository
 import kz.terensai.rhythm.data.StaffRepository
 import kz.terensai.rhythm.data.WorkRepository
 import kz.terensai.rhythm.data.WorkView
+import kz.terensai.rhythm.data.WorkJournalRepository
+import kz.terensai.rhythm.data.JournalLine
 import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionMetadata
@@ -40,7 +42,11 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     }
     val staffRepo=remember(context) { StaffRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
     val workRepo=remember(context) { WorkRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
+    val journalRepo=remember(context){WorkJournalRepository(
+        ParitmDatabase.get(context),LocalInstallIdentity.get(context))}
     val scope = rememberCoroutineScope()
+    var showingJournal by rememberSaveable{mutableStateOf(false)}
+    var journalLines by remember{mutableStateOf<List<JournalLine>>(emptyList())}
     var showingWork by rememberSaveable { mutableStateOf(false) }
     var personalWorkId by rememberSaveable {mutableStateOf<String?>(null)}
     var personalWork by remember {mutableStateOf<WorkView?>(null)}
@@ -73,6 +79,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     masters = staffRepo.all()
                     val mine=masters.firstOrNull { it.isMyProfile }?.id
                     myWorks=if(mine!=null) workRepo.all(mine) else emptyList()
+                    if(showingJournal)journalLines=if(mine!=null)journalRepo.all(mine) else emptyList()
                     if(personalWorkId==null && !creatingNewWork) {
                         personalWorkId=myWorks.firstOrNull { it.state!="COMPLETED" }?.row?.id
                     }
@@ -117,7 +124,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
         selectedPm1=masters.firstOrNull{it.isMyProfile}?.id
         notice = null
     }
-    BackHandler(enabled = preparing || selectedId != null || showingMasters || showingWork) {
+    BackHandler(enabled = preparing || selectedId != null || showingMasters || showingWork || showingJournal) {
+        showingJournal=false
         showingWork=false
         showingMasters=false
         selectedId = null
@@ -126,10 +134,35 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         when {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
+            showingJournal -> B243JournalScreen(
+                masterName=masters.firstOrNull{it.isMyProfile}?.displayName?:"Мастер",
+                entries=journalLines,pending=pending,notice=notice,
+                onBack={showingJournal=false},
+                onOpenWork={id->
+                    personalWorkId=id
+                    personalWork=myWorks.firstOrNull{it.row.id==id}
+                    creatingNewWork=false
+                    showingJournal=false;showingWork=true
+                },
+                onCorrect={id,minutes,reason->
+                    val mine=masters.firstOrNull{it.isMyProfile}?.id
+                    if(mine==null)notice="Выбери мой профиль"
+                    else scope.launch {
+                        pending=true
+                        try {
+                            journalRepo.correctCompleted(id,mine,minutes,reason)
+                            journalLines=journalRepo.all(mine)
+                            notice="Исправление и причина записаны в историю"
+                        }catch(e:Exception){notice="Ошибка: "+e.message}
+                        finally{pending=false}
+                    }
+                }
+            )
             showingWork -> B242WorkScreen(
                 sessions=items,work=personalWork,pending=pending,notice=notice,masters=masters,
                 allWorks=myWorks,onOpenWork={id-> creatingNewWork=false;personalWorkId=id; personalWork=myWorks.firstOrNull{it.row.id==id} },
                 onBack={showingWork=false},
+                onJournal={showingWork=false;showingJournal=true},
                 onCreate={session,role,procedure,minutes,leader,suiteName,programmeName->
                     val myId=masters.firstOrNull{it.isMyProfile}?.id
                     if(myId==null) notice="Сначала выбери свой профиль в разделе «Мастера»"
@@ -232,7 +265,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     B23ShiftScreen(
                         sessions=items,pending=pending,notice=notice,
                         onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders,
+                        onMasters={showingMasters=true},onWork={showingWork=true},onJournal={showingJournal=true},leaders=leaders,
                         workItems=myWorks,onOpenWork={id->creatingNewWork=false;personalWorkId=id;personalWork=myWorks.firstOrNull{it.row.id==id};showingWork=true}
                     )
                 } else {

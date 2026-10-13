@@ -17,7 +17,7 @@ import kz.terensai.rhythm.ui.theme.ParitmColors as C
 @Composable
 fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,notice:String?,
     onBack:()->Unit,onCreate:(String?,String,String,Int,String?,String?,String?)->Unit,
-    onAction:(String)->Unit,onNew:()->Unit,masters:List<StaffRow>,
+    onAction:(String)->Unit,onNew:()->Unit,onJournal:()->Unit = {},masters:List<StaffRow>,
     allWorks:List<WorkView> = emptyList(),onOpenWork:(String)->Unit = {}){
     var sessionId by remember {mutableStateOf<String?>(null)}
     var role by remember {mutableStateOf("PM")}
@@ -33,6 +33,9 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
         TextButton(onClick=onBack){Text("‹ Моя смена",color=C.amber)}
         Text("ПАРИТМ · МОЁ УЧАСТИЕ",color=C.bronze,fontSize=12.sp)
         Text("Личная процедура",color=C.white,fontSize=27.sp)
+        OutlinedButton(onClick=onJournal,modifier=Modifier.fillMaxWidth()){
+            Text("Открыть журнал и отчёты →",color=C.amber)
+        }
         if(notice!=null)Text(notice,color=C.amber)
         val ongoing=allWorks.filter{it.state!="COMPLETED"}
             .sortedBy { when(it.state){"RUNNING"->0;"PAUSED"->1;else->2} }

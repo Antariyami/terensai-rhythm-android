@@ -35,6 +35,7 @@ fun B23ShiftScreen(
     onOpen: (String) -> Unit,
     onMasters: () -> Unit = {},
     onWork: () -> Unit = {},
+    onJournal: () -> Unit = {},
     leaders: Map<String,String> = emptyMap(),
     workItems: List<WorkView> = emptyList(),
     onOpenWork: (String)->Unit = {}
@@ -55,6 +56,9 @@ fun B23ShiftScreen(
             }
             OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Моё участие · личная процедура",color=C.amber)
+            }
+            OutlinedButton(onClick=onJournal,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+                Text("Журнал работы · отчёт за день",color=C.amber)
             }
             Text("Мои процедуры · ${workItems.count{it.state!="COMPLETED"}} незавершённых",color=C.cream,fontSize=18.sp)
             workItems.filter{it.state!="COMPLETED"}.forEach { item ->

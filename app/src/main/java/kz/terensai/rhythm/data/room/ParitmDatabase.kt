@@ -9,8 +9,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
-    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class],
-    version = 5,
+    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class],
+    version = 6,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
@@ -77,6 +77,21 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5,6) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS work_corrections (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    workId TEXT NOT NULL,
+                    createdAtMs INTEGER NOT NULL,
+                    priorMinutes INTEGER NOT NULL,
+                    correctedMinutes INTEGER NOT NULL,
+                    reason TEXT NOT NULL,
+                    FOREIGN KEY(workId) REFERENCES work_entries(id)
+                    ON UPDATE NO ACTION ON DELETE CASCADE)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_corrections_workId ON work_corrections(workId)")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -84,7 +99,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).build().also { instance = it }
             }
     }
 }

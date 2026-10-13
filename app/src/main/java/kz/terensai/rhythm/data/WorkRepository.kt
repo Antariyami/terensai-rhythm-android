@@ -29,6 +29,10 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         if(state=="RUNNING")elapsed+=(at-(since?:at)).coerceAtLeast(0L)
         return WorkView(row,state,elapsed,events)
     }
+    /** Pure projection also used inside journal transactions without nested dispatching. */
+    internal fun projectForJournal(row:WorkRow, events:List<WorkEventRow>, at:Long):WorkView =
+        projection(row,events,at)
+
     suspend fun create(masterId:String,sessionId:String?,role:String="PM",
         procedure:String="INDIVIDUAL_STEAM",plannedMinutes:Int=45,
         externalPm1Id:String?=null,externalSuite:String?=null,
@@ -42,14 +46,20 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         db.withTransaction {
             require(db.staff().member(masterId)?.archived==false){"Выбери действующий профиль мастера"}
             if(sessionId!=null)require(db.records().session(sessionId)!=null){"Программа не найдена"}
-            val leader = externalPm1Id?.let { db.staff().member(it) }
+            val leader = if(sessionId!=null) {
+                db.staff().activeLeader(sessionId)?.let {db.staff().member(it.staffId)}
+            }else externalPm1Id?.let { db.staff().member(it) }
+            val localSession=sessionId?.let{db.records().session(it)}
+            val localSuite=localSession?.let{
+                runCatching {ProgramSnapshotCodec.metadata(it.snapshotJson).suite}.getOrNull()
+            }
             if(sessionId==null) require(leader!=null && !leader.archived){"PM1 не найден в справочнике"}
             val row=WorkRow(UUID.randomUUID().toString(),sessionId,masterId,role,procedure,
                 plannedMinutes*60000L,now(),origin,
                 pm1StaffId=leader?.id,
                 pm1NameSnapshot=leader?.displayName,
-                suiteNameSnapshot=externalSuite?.trim()?.take(48),
-                programmeNameSnapshot=externalProgramme?.trim()?.take(80))
+                suiteNameSnapshot=(localSuite ?: externalSuite)?.trim()?.take(48),
+                programmeNameSnapshot=(localSession?.templateTitle ?: externalProgramme)?.trim()?.take(80))
             dao.create(row)
             projection(row,emptyList(),now())
         }
