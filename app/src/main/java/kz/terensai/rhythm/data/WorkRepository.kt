@@ -29,6 +29,10 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         if(state=="RUNNING")elapsed+=(at-(since?:at)).coerceAtLeast(0L)
         return WorkView(row,state,elapsed,events)
     }
+    /** Pure projection also used inside journal transactions without nested dispatching. */
+    internal fun projectForJournal(row:WorkRow, events:List<WorkEventRow>, at:Long):WorkView =
+        projection(row,events,at)
+
     suspend fun create(masterId:String,sessionId:String?,role:String="PM",
         procedure:String="INDIVIDUAL_STEAM",plannedMinutes:Int=45,
         externalPm1Id:String?=null,externalSuite:String?=null,
