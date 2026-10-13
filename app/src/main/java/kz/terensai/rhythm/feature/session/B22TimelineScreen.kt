@@ -35,7 +35,8 @@ fun B22TimelineScreen(
     pending:Boolean,
     onBack:()->Unit,
     onCommand:(String,EventKind)->Unit,
-    onFinish:()->Unit
+    onFinish:()->Unit,
+    backLabel:String="‹ К программам"
 ) {
     val all=saved.progress.stages
     val current=all.firstOrNull{
@@ -57,7 +58,7 @@ fun B22TimelineScreen(
         .verticalScroll(rememberScrollState()).padding(horizontal=17.dp,vertical=12.dp),
         verticalArrangement=Arrangement.spacedBy(13.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            TextButton(onClick=onBack){Text("‹ К программам",color=C.amber)}
+            TextButton(onClick=onBack){Text(backLabel,color=C.amber)}
             Spacer(Modifier.weight(1f))
             Image(painterResource(R.drawable.paritm_approved_mark_hq),
                 contentDescription="ПАРИТМ",modifier=Modifier.size(44.dp))
