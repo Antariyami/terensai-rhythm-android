@@ -1,0 +1,41 @@
+name: PARITM B2.4.2 — Personal Work QA
+# Re-run after Kotlin generic declaration fix and work event test
+on:
+  push:
+    branches: [feature/b2-4-2-personal-work]
+    paths: ['.github/workflows/publish-b2-4-2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: JVM tests, QA app, Android instrumentation package
+        run: gradle --no-daemon -PparitmPreview242 :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Publish gated QA APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v0.2.4.2-b242-preview-2"
+          FILE="paritm-b2-4-2-personal-work-qa.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then exit 1; fi
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          test -s "$FILE"
+          gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" --prerelease \
+            --title "ПАРИТМ B2.4.2 · Моё участие" \
+            --notes "Standalone QA package: S12 personal procedure, independent START/PAUSE/RESUME/COMPLETE event timer, additive Room v3→v4 migration. Journal S13, editing, conflict detection planned B2.4.3. Not synced with other devices. Existing QA apps have separate data sandboxes."

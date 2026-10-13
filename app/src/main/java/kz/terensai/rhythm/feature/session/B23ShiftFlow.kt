@@ -15,6 +15,8 @@ import kz.terensai.rhythm.data.LocalInstallIdentity
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.data.SessionRepository
 import kz.terensai.rhythm.data.StaffRepository
+import kz.terensai.rhythm.data.WorkRepository
+import kz.terensai.rhythm.data.WorkView
 import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionMetadata
@@ -37,7 +39,12 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
         )
     }
     val staffRepo=remember(context) { StaffRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
+    val workRepo=remember(context) { WorkRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
     val scope = rememberCoroutineScope()
+    var showingWork by rememberSaveable { mutableStateOf(false) }
+    var personalWorkId by rememberSaveable {mutableStateOf<String?>(null)}
+    var personalWork by remember {mutableStateOf<WorkView?>(null)}
+
     var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
     var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
     var showingMasters by rememberSaveable {mutableStateOf(false)}
@@ -58,6 +65,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                 if (!pending) {
                     items = repo.activeSessions()
                     masters = staffRepo.all()
+                    personalWorkId?.let { personalWork=workRepo.get(it) }
                     leaders = items.associate { it.id to (staffRepo.leader(it.id)?.displayName ?: "не назначен") }
                 }
                 loaded = true
@@ -98,7 +106,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
         selectedPm1=masters.firstOrNull{it.isMyProfile}?.id
         notice = null
     }
-    BackHandler(enabled = preparing || selectedId != null || showingMasters) {
+    BackHandler(enabled = preparing || selectedId != null || showingMasters || showingWork) {
+        showingWork=false
         showingMasters=false
         selectedId = null
         preparing = false
@@ -106,6 +115,32 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         when {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
+            showingWork -> B242WorkScreen(
+                sessions=items,work=personalWork,pending=pending,notice=notice,
+                onBack={showingWork=false},
+                onCreate={session,role,minutes->
+                    val myId=masters.firstOrNull{it.isMyProfile}?.id
+                    if(myId==null) notice="Сначала выбери свой профиль в разделе «Мастера»"
+                    else scope.launch {
+                        pending=true
+                        try {
+                            val created=workRepo.create(myId,session,role=role,plannedMinutes=minutes)
+                            personalWorkId=created.row.id; personalWork=created;notice="Процедура сохранена"
+                        }catch(e:Exception){notice="Ошибка: "+e.message}
+                        finally{pending=false}
+                    }
+                },
+                onNew={personalWorkId=null;personalWork=null},
+                onAction={kind->
+                    val id=personalWorkId
+                    if(id!=null)scope.launch{
+                        pending=true
+                        try{personalWork=workRepo.command(id,kind);notice="Действие сохранено"}
+                        catch(e:Exception){notice="Ошибка: "+e.message}
+                        finally{pending=false}
+                    }
+                }
+            )
             showingMasters -> B241MastersScreen(
                 members=masters,notice=notice,busy=pending,onBack={showingMasters=false},
                 onCreate={name,spec,mine ->
@@ -170,7 +205,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
                     B23ShiftScreen(
                         sessions=items,pending=pending,notice=notice,
                         onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},leaders=leaders
+                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders
                     )
                 } else {
                     B22TimelineScreen(
@@ -191,7 +226,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false) {
             else -> B23ShiftScreen(
                 sessions=items,pending=pending,notice=notice,
                 onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},leaders=leaders
+                        onMasters={showingMasters=true},onWork={showingWork=true},leaders=leaders
             )
         }
     }
