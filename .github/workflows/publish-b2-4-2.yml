@@ -1,4 +1,5 @@
 name: PARITM B2.4.2 — Personal Work QA
+# Re-run after Kotlin generic declaration fix and work event test
 on:
   push:
     branches: [feature/b2-4-2-personal-work]
