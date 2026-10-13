@@ -1,0 +1,32 @@
+package kz.terensai.rhythm.data.room
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(tableName="work_entries",foreignKeys=[
+    ForeignKey(entity=StaffRow::class,parentColumns=["id"],childColumns=["staffId"],onDelete=ForeignKey.RESTRICT)
+],indices=[Index("staffId"),Index("sessionId")])
+data class WorkRow(
+    @PrimaryKey val id:String,
+    /** Nullable for standalone participation in another PM1's programme. */
+    val sessionId:String?,
+    val staffId:String,
+    val role:String,
+    val procedureType:String,
+    val plannedMs:Long,
+    val createdAtMs:Long,
+    val originClientId:String,
+    val revision:Long=0L
+)
+
+@Entity(tableName="work_events",foreignKeys=[
+    ForeignKey(entity=WorkRow::class,parentColumns=["id"],childColumns=["workId"],onDelete=ForeignKey.CASCADE)
+],indices=[Index("workId")])
+data class WorkEventRow(
+    @PrimaryKey val id:String,
+    val workId:String,
+    val kind:String,
+    val atMs:Long
+)
