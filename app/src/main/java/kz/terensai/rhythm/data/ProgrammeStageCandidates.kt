@@ -14,10 +14,10 @@ data class ReportableProgrammeStage(
     val suiteName:String?,
     val startedAtMs:Long,
     val finishedAtMs:Long?,
-    val type:String
+    val type:String?
 )
 
-/** Only confirmed, actually started steamings may be attributed by the user. */
+/** Show every completed programme stage; only steamings can be attributed as personal work. */
 object ProgrammeStageCandidates {
     fun classify(title:String):String? {
         val t=title.lowercase()
@@ -36,7 +36,7 @@ object ProgrammeStageCandidates {
         session.progress.stages.mapNotNull {stage ->
             val started=stage.actualStartedAtMs
             val type=classify(stage.plan.title)
-            if(stage.status!=StageStatus.COMPLETED || started==null || type==null ||
+            if(stage.status!=StageStatus.COMPLETED || started==null ||
                 Instant.ofEpochMilli(started).atZone(zone).toLocalDate()!=date
             ) null
             else ReportableProgrammeStage(
