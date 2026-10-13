@@ -61,6 +61,30 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
     suspend fun all(masterId:String):List<WorkView> = withContext(Dispatchers.IO){
         dao.forMaster(masterId).map {projection(it,dao.events(it.id),now())}
     }
+    /**
+     * Old QA versions permitted several RUNNING timers for one master. On first
+     * open, keep the most recently started one and pause every other running work.
+     * All corrections are new events; history is never silently discarded.
+     */
+    suspend fun reconcileLegacyRunning(masterId:String):Unit=withContext(Dispatchers.IO){
+        db.withTransaction{
+            val timestamp=now()
+            val running=dao.forMaster(masterId).mapNotNull { row ->
+                val events=dao.events(row.id)
+                val view=projection(row,events,timestamp)
+                if(view.state=="RUNNING") Pair(view,
+                    events.lastOrNull{it.kind=="START" || it.kind=="RESUME"}?.atMs?:0L) else null
+            }.sortedWith(compareByDescending<Pair<WorkView,Long>>{it.second}.thenByDescending{it.first.row.createdAtMs})
+            running.drop(1).forEach{(view,_)->
+                val last=view.events.lastOrNull()?.atMs?:view.row.createdAtMs
+                val stamp=timestamp.coerceAtLeast(last)
+                check(dao.append(WorkEventRow(UUID.randomUUID().toString(),view.row.id,"PAUSE",stamp))!=-1L)
+                check(dao.touch(view.row.id)==1)
+            }
+        }
+    }
+
+    /** START/RESUME atomically pauses other RUNNING work belonging to this master. */
     suspend fun command(id:String,kind:String):WorkView=withContext(Dispatchers.IO){
         db.withTransaction{
             val row=dao.entry(id)?:error("Процедура не найдена")
@@ -73,7 +97,23 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 else->false
             }
             check(allowed){"Действие недоступно в состоянии ${current.state}"}
-            val at=now().coerceAtLeast(previous.lastOrNull()?.atMs?:row.createdAtMs)
+            var at=now().coerceAtLeast(previous.lastOrNull()?.atMs?:row.createdAtMs)
+            if(kind=="START" || kind=="RESUME"){
+                // One Room transaction covers every PAUSE and the requested START/RESUME.
+                // This invariant survives Activity/process restart.
+                val others=dao.forMaster(row.staffId).filter{it.id!=row.id}.mapNotNull { other ->
+                    val events=dao.events(other.id)
+                    val state=projection(other,events,at)
+                    if(state.state=="RUNNING") Pair(other,events) else null
+                }
+                others.forEach {(other, events)->
+                    at=at.coerceAtLeast(events.lastOrNull()?.atMs?:other.createdAtMs)
+                }
+                others.forEach {(other,_)->
+                    check(dao.append(WorkEventRow(UUID.randomUUID().toString(),other.id,"PAUSE",at))!=-1L)
+                    check(dao.touch(other.id)==1)
+                }
+            }
             check(dao.append(WorkEventRow(UUID.randomUUID().toString(),id,kind,at))!=-1L)
             check(dao.touch(id)==1)
             projection(dao.entry(id)!!,dao.events(id),at)
