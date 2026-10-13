@@ -9,13 +9,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
-    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class],
-    version = 3,
+    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class],
+    version = 4,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
     abstract fun records(): ParitmDao
     abstract fun staff(): StaffDao
+    abstract fun work(): WorkDao
 
     companion object {
         /**
@@ -49,6 +50,24 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3,4) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS work_entries (
+                    id TEXT NOT NULL PRIMARY KEY, sessionId TEXT,staffId TEXT NOT NULL,
+                    role TEXT NOT NULL,procedureType TEXT NOT NULL,
+                    plannedMs INTEGER NOT NULL,createdAtMs INTEGER NOT NULL,
+                    originClientId TEXT NOT NULL,revision INTEGER NOT NULL,
+                    FOREIGN KEY(staffId) REFERENCES staff_members(id) ON UPDATE NO ACTION ON DELETE RESTRICT)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_entries_staffId ON work_entries(staffId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_entries_sessionId ON work_entries(sessionId)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS work_events (
+                    id TEXT NOT NULL PRIMARY KEY,workId TEXT NOT NULL,
+                    kind TEXT NOT NULL,atMs INTEGER NOT NULL,
+                    FOREIGN KEY(workId) REFERENCES work_entries(id) ON UPDATE NO ACTION ON DELETE CASCADE)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_events_workId ON work_events(workId)")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -56,7 +75,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4).build().also { instance = it }
             }
     }
 }
