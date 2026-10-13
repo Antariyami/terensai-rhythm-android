@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.data.JournalLine
 import kz.terensai.rhythm.data.WorkJournalLabels
 import kz.terensai.rhythm.data.WorkJournalReport
+import kz.terensai.rhythm.data.TelegramWorkReport
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import java.time.LocalDate
 
@@ -52,6 +53,8 @@ fun B243JournalScreen(
     var revisedMinutes by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     var copied by remember { mutableStateOf(false) }
+    var telegramCopied by remember { mutableStateOf(false) }
+    var showTelegramPreview by remember { mutableStateOf(false) }
     val dayRows=entries.filter{WorkJournalReport.dayOf(it)==date}
     val suites=(listOf("Все сьюты")+dayRows.map{it.work.row.suiteNameSnapshot?:"Не указан"}.distinct().sorted())
     val leaders=(listOf("Все PM1")+dayRows.map{it.work.row.pm1NameSnapshot?:"Не указан"}.distinct().sorted())
@@ -63,6 +66,7 @@ fun B243JournalScreen(
     }
     val done=WorkJournalReport.completed(filtered)
     val summary=WorkJournalReport.message(date,masterName,filtered)
+    val telegram=TelegramWorkReport.message(date,masterName,filtered)
 
     if(correctionTarget!=null) AlertDialog(
         onDismissRequest={correctionTarget=null},
@@ -220,6 +224,38 @@ fun B243JournalScreen(
             }
         }
         HorizontalDivider(color=C.border)
+        Text("ОТЧЁТЫ · ЭКСПОРТ",color=C.bronze,fontSize=12.sp,letterSpacing=1.2.sp)
+        Text("Telegram · краткий формат",color=C.white,fontSize=19.sp,
+            fontWeight=FontWeight.SemiBold)
+        Text("Дата, сьют, начало, программа, исполнитель, число парений и PM1. " +
+            "Незавершённые процедуры не учитываются.",
+            color=C.secondary,fontSize=12.sp)
+        OutlinedButton(modifier=Modifier.fillMaxWidth(),onClick={showTelegramPreview=!showTelegramPreview}){
+            Text(if(showTelegramPreview)"Скрыть образец Telegram" else "Посмотреть текст Telegram",
+                color=C.amber)
+        }
+        if(showTelegramPreview) {
+            Text(telegram,color=C.cream,fontSize=13.sp)
+        }
+        Button(modifier=Modifier.fillMaxWidth(),onClick={
+            val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Отчёт для Telegram",telegram))
+            telegramCopied=true
+        }){Text(if(telegramCopied)"Telegram-отчёт скопирован" else "Скопировать для Telegram")}
+        OutlinedButton(modifier=Modifier.fillMaxWidth(),onClick={
+            val intent=Intent(Intent.ACTION_SEND).apply{
+                type="text/plain"
+                putExtra(Intent.EXTRA_TEXT,telegram)
+            }
+            context.startActivity(Intent.createChooser(intent,"Поделиться отчётом в Telegram"))
+        }){Text("Отправить в Telegram · выбрать приложение",color=C.amber)}
+        Text("Для ранее записанных внешних программ без идентификатора визита " +
+            "каждая завершённая процедура выводится отдельным блоком: " +
+            "это исключает ошибочное объединение двух посещений.",
+            color=C.secondary,fontSize=11.sp)
+        HorizontalDivider(color=C.border)
+        Text("WhatsApp · подробный отчёт",color=C.white,fontSize=19.sp,
+            fontWeight=FontWeight.SemiBold)
         Button(modifier=Modifier.fillMaxWidth(),onClick={
             val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("ПАРИТМ · отчёт",summary))
