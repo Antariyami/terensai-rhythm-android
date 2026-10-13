@@ -81,6 +81,11 @@ class SessionRepository(
         }
     }
 
+    /** Historical (including completed) B2 sessions for the programme-stage journal. */
+    suspend fun allSessions():List<SavedSession> = withContext(Dispatchers.IO) {
+        dao.sessions().filter{it.legacyJson==null}.map{read(it)}
+    }
+
     suspend fun activeSessions(): List<SavedSession> = withContext(Dispatchers.IO) {
         dao.activeSessions().map { read(it) }
     }

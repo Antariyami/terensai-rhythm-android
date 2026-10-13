@@ -64,6 +64,55 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
             projection(row,emptyList(),now())
         }
     }
+    /**
+     * A programme stage is not automatically the performer's work. The master
+     * explicitly attributes it from S13. Same stage+performer can be imported
+     * once only; all source event timestamps are copied, not invented.
+     */
+    suspend fun attributeCompletedStage(
+        masterId:String,sessionId:String,stageId:String
+    ):WorkView=withContext(Dispatchers.IO){
+        db.withTransaction{
+            val master=db.staff().member(masterId)
+            require(master!=null && !master.archived){"Выбери свой действующий профиль"}
+            val existing=dao.fromStage(sessionId,masterId,stageId)
+            if(existing!=null)return@withTransaction projection(existing,dao.events(existing.id),now())
+            val session=db.records().session(sessionId)?:error("Программа не найдена")
+            require(session.legacyJson==null){"Архивная программа не поддерживает учёт этапов"}
+            val plan=ProgramSnapshotCodec.decode(session.snapshotJson)
+            val stage=plan.stages.firstOrNull{it.id==stageId}?:error("Этап не найден")
+            val type=ProgrammeStageCandidates.classify(stage.title)
+                ?:error("Учесть можно только индивидуальное или коллективное парение")
+            val events=db.records().events(sessionId).filter{it.stageId==stageId}
+            check(events.any{it.kind=="START"} && events.lastOrNull()?.kind=="COMPLETE"){
+                "Этап ещё не завершён"
+            }
+            val leader=db.staff().activeLeader(sessionId)?.let{db.staff().member(it.staffId)}
+            val suite=ProgramSnapshotCodec.metadata(session.snapshotJson).suite
+            val row=WorkRow(
+                id=UUID.randomUUID().toString(),
+                sessionId=sessionId,staffId=masterId,
+                role=if(leader?.id==masterId)"PM1" else "PM",
+                procedureType=type,plannedMs=stage.plannedDurationMs,
+                createdAtMs=events.first{it.kind=="START"}.atMs,
+                originClientId=origin,pm1StaffId=leader?.id,
+                pm1NameSnapshot=leader?.displayName,
+                suiteNameSnapshot=suite,
+                programmeNameSnapshot=session.templateTitle,
+                sourceStageId=stageId
+            )
+            dao.create(row)
+            events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE")}.forEach{ event->
+                check(dao.append(WorkEventRow(
+                    UUID.randomUUID().toString(),row.id,event.kind,event.atMs
+                ))!=-1L)
+            }
+            val result=projection(row,dao.events(row.id),now())
+            check(result.state=="COMPLETED"){"Не удалось подтвердить завершение"}
+            result
+        }
+    }
+
     suspend fun get(id:String):WorkView?=withContext(Dispatchers.IO){
         val row=dao.entry(id)?:return@withContext null
         projection(row,dao.events(id),now())
