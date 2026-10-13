@@ -17,6 +17,8 @@
       </intent-filter>
     </activity>
     <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait"/>
+    <activity android:name=".feature.session.B22SessionActivity"
+       android:exported="false" android:screenOrientation="portrait"/>
     <activity android:name=".feature.qa.B21QaActivity" android:exported="false"
        android:screenOrientation="portrait"/>
   </application>
