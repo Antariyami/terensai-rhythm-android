@@ -14,7 +14,9 @@ class B22SessionActivity : ComponentActivity() {
                 if (BuildConfig.B23_QA || BuildConfig.B241_QA || BuildConfig.B242_QA) {
                     B23ShiftFlow(
                         onBack = { finish() },
-                        initialNew = intent?.getBooleanExtra("prepare", false) == true
+                        initialNew = intent?.getBooleanExtra("prepare", false) == true,
+                        initialJournal = intent?.getBooleanExtra("openJournal",false)==true,
+                        initialMasters = intent?.getBooleanExtra("openMasters",false)==true
                     )
                 } else {
                     B22SessionFlow(onBack = { finish() })
