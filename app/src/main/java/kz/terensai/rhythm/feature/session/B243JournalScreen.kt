@@ -179,6 +179,7 @@ fun B243JournalScreen(
                     Text(WorkJournalLabels.state(line.work.state),
                         color=if(line.work.state=="RUNNING")C.fact else C.amber,fontSize=12.sp)
                 }
+                Text("Программа: ${row.programmeNameSnapshot?:"не указана"}",color=C.secondary,fontSize=12.sp)
                 Text("Сьют: ${row.suiteNameSnapshot?:"локальная программа"} · PM1: ${row.pm1NameSnapshot?:"не указан"}",
                     color=C.secondary,fontSize=12.sp)
                 Text("Роль ${row.role} · план ${row.plannedMs/60000} мин · факт ${line.reportedMinutes} мин"+
