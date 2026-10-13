@@ -58,7 +58,7 @@ fun B23ShiftScreen(
                 Text("Моё участие · личная процедура",color=C.amber)
             }
             OutlinedButton(onClick=onJournal,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
-                Text("Журнал работы · отчёт за день",color=C.amber)
+                Text("Отчёты · журнал, Telegram и WhatsApp",color=C.amber)
             }
             Text("Мои процедуры · ${workItems.count{it.state!="COMPLETED"}} незавершённых",color=C.cream,fontSize=18.sp)
             workItems.filter{it.state!="COMPLETED"}.forEach { item ->
