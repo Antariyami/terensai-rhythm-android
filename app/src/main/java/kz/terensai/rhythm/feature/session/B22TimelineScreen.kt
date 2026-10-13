@@ -11,6 +11,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -38,6 +39,14 @@ fun B22TimelineScreen(
     onFinish:()->Unit,
     backLabel:String="‹ К программам"
 ) {
+    var focusVisible by rememberSaveable(saved.id){mutableStateOf(false)}
+    if(focusVisible) {
+        B31FocusScreen(
+            saved=saved,notice=notice,pending=pending,
+            onClose={focusVisible=false},onCommand=onCommand
+        )
+        return
+    }
     val all=saved.progress.stages
     val current=all.firstOrNull{
         it.status==StageStatus.RUNNING || it.status==StageStatus.PAUSED
@@ -91,6 +100,11 @@ fun B22TimelineScreen(
         }
         if(current!=null) {
             StageProgressCard(current)
+            OutlinedButton(onClick={focusVisible=true},
+                modifier=Modifier.fillMaxWidth().heightIn(min=58.dp)) {
+                Text("⛶ Полноэкранный таймер · ФОКУС",
+                    color=C.amber,fontSize=16.sp,fontWeight=FontWeight.SemiBold)
+            }
             val id=current.plan.id
             val status=current.status
             if(status==StageStatus.NOT_STARTED) {
