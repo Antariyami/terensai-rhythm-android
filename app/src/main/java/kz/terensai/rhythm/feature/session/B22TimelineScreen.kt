@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.R
+import kz.terensai.rhythm.feature.entry.ParitmAtmosphere
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.domain.EventKind
 import kz.terensai.rhythm.domain.StageStatus
@@ -50,7 +51,9 @@ fun B22TimelineScreen(
     val plannedEnd = Date(saved.progress.plannedEndMs)
     val shape=RoundedCornerShape(18.dp)
 
-    Column(Modifier.fillMaxSize().background(C.canvas)
+    Box(Modifier.fillMaxSize().background(C.canvas)) {
+    ParitmAtmosphere()
+    Column(Modifier.fillMaxSize()
         .verticalScroll(rememberScrollState()).padding(horizontal=17.dp,vertical=12.dp),
         verticalArrangement=Arrangement.spacedBy(13.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
@@ -142,4 +145,5 @@ fun B22TimelineScreen(
         }){Text("Завершить",color=C.amber)}},
         dismissButton={TextButton(onClick={confirmFinish=false}){Text("Отмена",color=C.white)}}
     )
+    }
 }
