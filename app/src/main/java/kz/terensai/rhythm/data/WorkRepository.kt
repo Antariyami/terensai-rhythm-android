@@ -30,13 +30,26 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
         return WorkView(row,state,elapsed,events)
     }
     suspend fun create(masterId:String,sessionId:String?,role:String="PM",
-        procedure:String="INDIVIDUAL_STEAM",plannedMinutes:Int=45):WorkView=withContext(Dispatchers.IO){
+        procedure:String="INDIVIDUAL_STEAM",plannedMinutes:Int=45,
+        externalPm1Id:String?=null,externalSuite:String?=null,
+        externalProgramme:String?=null):WorkView=withContext(Dispatchers.IO){
         require(plannedMinutes in 1..240 && role in setOf("PM","SPA","PM1"))
+        require(procedure in setOf("INDIVIDUAL_STEAM","COLLECTIVE_STEAM","MASSAGE","PEELING","WASHING","OTHER"))
+        if(sessionId==null) {
+            require(!externalPm1Id.isNullOrBlank()){"Выбери ведущего PM1"}
+            require(!externalSuite.isNullOrBlank()){"Укажи сьют"}
+        }
         db.withTransaction {
             require(db.staff().member(masterId)?.archived==false){"Выбери действующий профиль мастера"}
             if(sessionId!=null)require(db.records().session(sessionId)!=null){"Программа не найдена"}
+            val leader = externalPm1Id?.let { db.staff().member(it) }
+            if(sessionId==null) require(leader!=null && !leader.archived){"PM1 не найден в справочнике"}
             val row=WorkRow(UUID.randomUUID().toString(),sessionId,masterId,role,procedure,
-                plannedMinutes*60000L,now(),origin)
+                plannedMinutes*60000L,now(),origin,
+                pm1StaffId=leader?.id,
+                pm1NameSnapshot=leader?.displayName,
+                suiteNameSnapshot=externalSuite?.trim()?.take(48),
+                programmeNameSnapshot=externalProgramme?.trim()?.take(80))
             dao.create(row)
             projection(row,emptyList(),now())
         }
