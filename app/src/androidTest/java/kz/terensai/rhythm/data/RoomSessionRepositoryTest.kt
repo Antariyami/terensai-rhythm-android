@@ -35,12 +35,45 @@ class RoomSessionRepositoryTest {
 
     @After fun tearDown() { db.close() }
 
-    @Test fun doubleStartReturnsTheSameSessionIdAndSingleRow() = runBlocking {
+    @Test fun retryOfOneRequestIsIdempotentButDeliberateNewRequestIsIndependent() = runBlocking {
         val repo = SessionRepository(db, clock)
-        val a = repo.start(plan)
-        val b = repo.start(plan)
-        assertEquals(a.id,b.id)
-        assertEquals(1,db.records().activeSessionCount())
+        val a = repo.start(plan, requestId="request-A")
+        val same = repo.start(plan, requestId="request-A")
+        val b = repo.start(plan, requestId="request-B")
+        assertEquals(a.id,same.id)
+        assertNotEquals(a.id,b.id)
+        assertEquals(2,db.records().activeSessionCount())
+        assertEquals(2,repo.activeSessions().size)
+    }
+
+    @Test fun fiveIndependentSessionsKeepTheirOwnStagesAndCanRestoreById() = runBlocking {
+        val repo = SessionRepository(db,clock)
+        val ids = (1..5).map { i ->
+            repo.start(plan,requestId="request-$i").id
+        }
+        assertEquals(5,repo.activeSessions().size)
+        try {
+            repo.start(plan,requestId="request-sixth")
+            fail("Must enforce maximum of 5 programmes")
+        } catch (_: IllegalStateException) { }
+        repo.perform(ids[0],"s",EventKind.START,"first-start")
+        clock.time += 17_000L
+        repo.perform(ids[0],"s",EventKind.PAUSE,"first-pause")
+        repo.perform(ids[1],"s",EventKind.START,"second-start")
+        clock.time += 8_000L
+        val restored=SessionRepository(db,clock)
+        assertEquals(ids[0],restored.readById(ids[0])!!.id)
+        assertEquals(StageStatus.PAUSED,restored.readById(ids[0])!!.progress.stages.single().status)
+        assertEquals(17_000L,restored.readById(ids[0])!!.progress.stages.single().elapsedMs)
+        assertEquals(StageStatus.RUNNING,restored.readById(ids[1])!!.progress.stages.single().status)
+        assertEquals(StageStatus.NOT_STARTED,restored.readById(ids[2])!!.progress.stages.single().status)
+        assertEquals(5,restored.activeSessions().size)
+        repo.perform(ids[0],"s",EventKind.COMPLETE,"first-complete")
+        repo.finish(ids[0])
+        assertEquals(4,restored.activeSessions().size)
+        val next=repo.start(plan,requestId="request-reuse-slot")
+        assertNotNull(next)
+        assertEquals(5,restored.activeSessions().size)
     }
 
     @Test fun pauseAndResumeSurviveNewRepositoryInstance() = runBlocking {
