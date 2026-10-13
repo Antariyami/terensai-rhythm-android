@@ -14,6 +14,30 @@ class StaffRepository(
 ) {
     private val dao=db.staff()
     private fun clean(s:String)=s.trim().replace(Regex("\\s+")," ").take(80)
+    /**
+     * Add useful starter records once without overwriting user edits, re-adding archived
+     * people, or stealing an existing user's selected personal profile.
+     * A fresh install defaults to Андрей as the current user; this can be switched.
+     */
+    suspend fun ensureStarterMasters():Unit=withContext(Dispatchers.IO){
+        db.withTransaction {
+            val all=dao.allIncludingArchived()
+            val desired=listOf("Андрей","Олжас")
+            desired.forEach { defaultName ->
+                if(all.none{it.displayName.equals(defaultName,ignoreCase=true)}){
+                    dao.add(StaffRow(
+                        id=UUID.randomUUID().toString(),displayName=defaultName,
+                        originClientId=origin,updatedAtMs=clock()
+                    ))
+                }
+            }
+            if(dao.myProfile()==null) {
+                val andrey=dao.all().firstOrNull {it.displayName.equals("Андрей",ignoreCase=true)}
+                val fallback=andrey ?: dao.all().firstOrNull()
+                if(fallback!=null) check(dao.selectMyProfile(fallback.id,clock())==1)
+            }
+        }
+    }
     suspend fun all():List<StaffRow> = withContext(Dispatchers.IO){dao.all()}
     suspend fun mine():StaffRow?=withContext(Dispatchers.IO){dao.myProfile()}
     suspend fun create(name:String,specialties:String="",asMine:Boolean=false):StaffRow =
