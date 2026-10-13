@@ -11,6 +11,8 @@ interface WorkDao {
     fun create(row:WorkRow)
     @Insert(onConflict=OnConflictStrategy.IGNORE)
     fun append(row:WorkEventRow):Long
+    @Query("SELECT * FROM work_entries WHERE sessionId=:sessionId AND staffId=:staffId AND sourceStageId=:stageId LIMIT 1")
+    fun fromStage(sessionId:String,staffId:String,stageId:String):WorkRow?
     @Query("SELECT * FROM work_entries WHERE id=:id LIMIT 1")
     fun entry(id:String):WorkRow?
     @Query("SELECT * FROM work_entries WHERE staffId=:staffId ORDER BY createdAtMs DESC")
