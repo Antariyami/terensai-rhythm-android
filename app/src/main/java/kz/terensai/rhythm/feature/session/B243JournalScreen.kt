@@ -195,11 +195,11 @@ fun B243JournalScreen(
                 .padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)
         ) {
             Text("ЭТАПЫ БАННЫХ ПРОГРАММ",color=C.bronze,fontSize=12.sp)
-            Text("Завершённые парения из сохранённых программ. " +
-                "Они не входят в личный отчёт, пока ты не подтвердил своё участие.",
+            Text("Завершённые этапы из сохранённых программ. " +
+                "Этапы не входят в личный отчёт, пока ты не подтвердил выполнение парения.",
                 color=C.secondary,fontSize=12.sp)
             if(programmeStages.isEmpty()) {
-                Text("За этот день завершённых этапов парения в программах нет.",
+                Text("За этот день завершённых этапов в программах нет.",
                     color=C.secondary,fontSize=12.sp)
             }
             programmeStages.forEach { stage ->
@@ -212,10 +212,15 @@ fun B243JournalScreen(
                     Text("${stage.programmeTitle} · ${stage.suiteName?:"Сьют не указан"} · " +
                         WorkJournalReport.hhmm(stage.startedAtMs),
                         color=C.secondary,fontSize=12.sp)
-                    OutlinedButton(enabled=!pending && !already,
-                        onClick={stageToConfirm=stage},modifier=Modifier.fillMaxWidth()){
-                        Text(if(already)"✓ Уже учтено в личном журнале"
-                             else "+ Учесть как моё парение",color=if(already)C.fact else C.amber)
+                    if(stage.type!=null) {
+                        OutlinedButton(enabled=!pending && !already,
+                            onClick={stageToConfirm=stage},modifier=Modifier.fillMaxWidth()){
+                            Text(if(already)"✓ Уже учтено в личном журнале"
+                                 else "+ Учесть как моё парение",color=if(already)C.fact else C.amber)
+                        }
+                    }else {
+                        Text("✓ Сохранено как этап программы (не личное парение)",
+                            color=C.secondary,fontSize=11.sp)
                     }
                 }
             }
