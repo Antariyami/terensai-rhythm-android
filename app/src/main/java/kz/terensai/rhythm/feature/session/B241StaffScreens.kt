@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 
-/** S10: no pre-seeded employer or invented staff identity. */
+/** S10: starter names are user-editable; assignments remain tied to stable staff IDs. */
 @Composable
 fun B241MastersScreen(
     members:List<StaffRow>,notice:String?,busy:Boolean,
@@ -37,6 +37,7 @@ fun B241MastersScreen(
             color=C.secondary)
         val self=members.firstOrNull{it.isMyProfile}
         Text("Мой профиль: ${self?.displayName ?: "не выбран"}",color=C.cream)
+        Text("Выбран только один мой профиль. Остальные мастера доступны для назначения PM1.",color=C.secondary,fontSize=12.sp)
         if(notice!=null) Text(notice,color=C.amber)
         members.forEach { person ->
             Column(Modifier.fillMaxWidth().background(C.panel,RoundedCornerShape(14.dp))
@@ -48,11 +49,15 @@ fun B241MastersScreen(
                 }
                 if(person.specialties.isNotBlank()) Text(person.specialties,color=C.secondary,fontSize=12.sp)
                 Row {
-                    TextButton(enabled=!busy,onClick={onSelectMine(person.id)}){Text("Это я",color=C.amber)}
+                    if(!person.isMyProfile) TextButton(enabled=!busy,onClick={onSelectMine(person.id)}){
+                        Text("Сделать моим",color=C.amber)
+                    }
                     TextButton(enabled=!busy,onClick={
                         editing=person;name=person.displayName;special=person.specialties;mine=person.isMyProfile
                     }){Text("Изменить",color=C.cream)}
-                    TextButton(enabled=!busy,onClick={onArchive(person.id)}){Text("Скрыть",color=C.overrun)}
+                    if(!person.isMyProfile) TextButton(enabled=!busy,onClick={onArchive(person.id)}){
+                        Text("Скрыть",color=C.overrun)
+                    }
                 }
             }
         }
@@ -64,7 +69,7 @@ fun B241MastersScreen(
             label={Text("Специализация (необязательно)")},modifier=Modifier.fillMaxWidth())
         if(editing==null) Row(verticalAlignment=Alignment.CenterVertically){
             Checkbox(checked=mine,onCheckedChange={mine=it})
-            Text("Это мой профиль",color=C.white)
+            Text("Назначить моим профилем",color=C.white)
         }
         Button(enabled=!busy && name.isNotBlank(),onClick={
             val current=editing
