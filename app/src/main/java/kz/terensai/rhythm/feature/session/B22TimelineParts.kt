@@ -16,7 +16,6 @@ import kz.terensai.rhythm.domain.SessionProgress
 import kz.terensai.rhythm.domain.StageProgress
 import kz.terensai.rhythm.domain.StageStatus
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
-import kotlin.math.min
 
 internal fun formatElapsed(ms:Long):String {
     val seconds = ms.coerceAtLeast(0L) / 1000
@@ -59,10 +58,7 @@ internal fun TimelineCard(
         }
         Text("Факт · положение в программе",color=C.secondary,fontSize=12.sp)
         Box(Modifier.fillMaxWidth().height(9.dp).background(C.border,RoundedCornerShape(8.dp))) {
-            val planned = (progress.plannedEndMs -
-                (progress.plannedEndMs - progress.remainingPlannedMs - progress.elapsedWallClockMs))
-            // The total planned duration is reconstructed from the stage plan,
-            // not the changing 'remaining' value.
+            // Scheduled offsets are immutable; actual marker uses the same timeline axis.
             val duration = progress.stages.maxOfOrNull {
                 it.plan.startOffsetMs+it.plan.plannedDurationMs
             }?.coerceAtLeast(1L) ?: 1L
@@ -74,11 +70,7 @@ internal fun TimelineCard(
             Text("0:00",color=C.muted,fontSize=11.sp)
             Text("3:00 · конец плана",color=C.amber,fontSize=11.sp)
         }
-        val totalOverdue = progress.elapsedWallClockMs -
-            (progress.plannedEndMs - (progress.plannedEndMs - progress.elapsedWallClockMs
-                - progress.remainingPlannedMs))
-        // The meaningful global indicator is elapsed beyond full programme plan;
-        // stage start delay is shown separately below.
+        // The programme overrun and start delay are independent metrics.
         val planMs=progress.stages.maxOfOrNull {
             it.plan.startOffsetMs+it.plan.plannedDurationMs
         } ?: 0L
