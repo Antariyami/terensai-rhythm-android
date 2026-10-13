@@ -79,7 +79,7 @@ fun ParitmB1Root(hasOldActiveSession:Boolean,openPilotTimer:()->Unit) {
 private fun BrandMark(modifier:Modifier=Modifier) {
   // This is a separately packaged approved emblem, not a flattened screenshot of UI.
   Image(
-    painter=painterResource(R.drawable.paritm_approved_mark),
+    painter=painterResource(R.drawable.paritm_approved_mark_hq),
     contentDescription="ПАРИТМ — медальон с часами, паром и дубовыми листьями",
     modifier=modifier
   )
@@ -105,8 +105,8 @@ private fun WelcomeScreen(
           Brush.radialGradient(listOf(Color(0x66DAA45A),Color(0x22462922),Color.Transparent)),
           RoundedCornerShape(46.dp)
         ),contentAlignment=Alignment.Center) {
-        // B1.1: show the current bitmap at a less exaggerated scale; HQ original export still required.
-        BrandMark(Modifier.size(150.dp).clip(RoundedCornerShape(28.dp)))
+        // High-resolution, approved artwork from original reference; avoids enlarging 128px preview.
+        BrandMark(Modifier.size(186.dp).clip(RoundedCornerShape(32.dp)))
       }
       Spacer(Modifier.height(26.dp))
       Text("ПАРИТМ",color=C.cream,fontFamily=FontFamily.Serif,fontSize=40.sp,
