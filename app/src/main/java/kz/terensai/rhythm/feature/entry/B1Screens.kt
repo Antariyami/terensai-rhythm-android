@@ -226,7 +226,8 @@ internal fun ProgrammesScreen(
         Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
           Text(programme.summary,color=C.white)
           Text(programme.structure,color=C.secondary)
-          Text(displayDuration(programme.durationMinutes),color=C.amber)
+          Text(if(programme.status==TemplateStatus.CUSTOM) "Время задаёт мастер"
+            else displayDuration(programme.durationMinutes),color=C.amber)
           if(programme.status==TemplateStatus.CUSTOM) Text(
             if(onCustom!=null) "Создай собственные этапы и запусти их в личной смене."
             else "Создание собственной программы доступно в новой версии P1.",
@@ -294,7 +295,8 @@ private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
         Text(item.name,color=C.white,fontSize=19.sp,fontWeight=FontWeight.Bold,
           maxLines=1,overflow=TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
-        Text(displayDuration(item.durationMinutes),color=C.amber,fontSize=14.sp)
+        Text(if(custom) "Время задаёт мастер" else displayDuration(item.durationMinutes),
+          color=C.amber,fontSize=14.sp)
         Spacer(Modifier.height(5.dp))
         Text(item.structure,color=C.secondary,fontSize=12.sp,
           maxLines=2,overflow=TextOverflow.Ellipsis,lineHeight=16.sp)
