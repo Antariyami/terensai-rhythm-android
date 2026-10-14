@@ -46,6 +46,9 @@ fun N1NavigationShell(
         tab="shift"
     }
     BackHandler(enabled=tab!="home" && !mastersInSettings){tab="home"}
+    LaunchedEffect(tab,newProgrammeRequested) {
+        if(tab=="shift")prepareNewProgramme=false
+    }
     Column(Modifier.fillMaxSize().background(C.canvas)){
         Box(Modifier.weight(1f)){
             if(mastersInSettings) {
