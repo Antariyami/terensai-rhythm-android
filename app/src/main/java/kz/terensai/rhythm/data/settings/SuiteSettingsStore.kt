@@ -28,9 +28,13 @@ class SuiteSettingsStore(context: Context) {
     private val key = "suite_names"
     companion object {
         /** Editable initial names. Suite capacities are guidance, not hard limits. */
-        val INITIAL_SUITES = listOf(
+        private val OLD_DEFAULT_SUITES = listOf(
             "1 · Көркемдік", "2 · Өркендеу", "3 · Сәттілік",
             "4 · Байлық", "5 · Амандық"
+        )
+        val INITIAL_SUITES = listOf(
+            "1 · Көркемдік", "2 · Өркендеу", "3 · Байлық",
+            "4 · Амандық", "5 · Сәттілік"
         )
     }
     fun load(): List<String> = try {
@@ -39,7 +43,9 @@ class SuiteSettingsStore(context: Context) {
         for (i in 0 until raw.length()) {
             result = SuiteNames.add(result, raw.optString(i))
         }
-        result
+        // Upgrade only the exact old *default*: never rewrite user's edited
+        // list, nor historical snapshots stored on a completed session.
+        if(result==OLD_DEFAULT_SUITES)persist(INITIAL_SUITES) else result
     } catch (_: Exception) { emptyList() }
 
     private fun persist(names: List<String>): List<String> {

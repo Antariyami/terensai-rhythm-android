@@ -51,9 +51,6 @@ fun B23ShiftScreen(
                 Image(painter=painterResource(R.drawable.paritm_approved_mark_hq),
                     contentDescription="ПАРИТМ",modifier=Modifier.size(48.dp))
             }
-            OutlinedButton(onClick=onMasters,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
-                Text("Мастера · личный профиль и справочник",color=C.amber)
-            }
             OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Моё участие · личная процедура",color=C.amber)
             }

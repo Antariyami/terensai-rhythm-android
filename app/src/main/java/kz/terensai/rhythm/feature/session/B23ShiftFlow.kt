@@ -132,8 +132,10 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
         notice = null
     }
     BackHandler(enabled = preparing || selectedId != null || showingMasters || showingWork || showingJournal) {
+        if(showingJournal && initialJournal) onBack()
         showingJournal=false
         showingWork=false
+        if(showingMasters && initialMasters) onBack()
         showingMasters=false
         selectedId = null
         preparing = false
@@ -159,7 +161,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                         finally{pending=false}
                     }
                 },
-                onBack={showingJournal=false},
+                onBack={if(initialJournal) onBack() else showingJournal=false},
                 onOpenWork={id->
                     personalWorkId=id
                     personalWork=myWorks.firstOrNull{it.row.id==id}
@@ -224,7 +226,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                 }
             )
             showingMasters -> B241MastersScreen(
-                members=masters,notice=notice,busy=pending,onBack={showingMasters=false},
+                members=masters,notice=notice,busy=pending,onBack={if(initialMasters) onBack() else showingMasters=false},
                 onCreate={name,spec,mine ->
                     scope.launch {
                         pending=true
