@@ -24,6 +24,7 @@ import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionMetadata
 import kz.terensai.rhythm.domain.EventKind
 import kz.terensai.rhythm.domain.PilotTanysuPlan
+import kz.terensai.rhythm.domain.ProgramPlan
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import java.util.UUID
 
@@ -33,6 +34,7 @@ import java.util.UUID
  */
 @Composable
 fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
+    initialCustom:Boolean=false,
     initialJournal: Boolean=false, initialMasters: Boolean=false) {
     val context = LocalContext.current
     val repo = remember(context) {
@@ -66,6 +68,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     var notice by remember { mutableStateOf<String?>(null) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var preparing by rememberSaveable { mutableStateOf(initialNew) }
+    var preparingCustom by rememberSaveable {mutableStateOf(initialCustom)}
     // Saved across configuration changes; same user Start request has same UUID.
     var creationRequestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
 
@@ -108,6 +111,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                 items = repo.activeSessions()
                 selectedId = if (changed.finishedAtMs == null) changed.id else null
                 preparing = false
+                preparingCustom = false
                 if (isCreation) {
                     creationRequestId = UUID.randomUUID().toString()
                     selectedPm1=null
@@ -128,10 +132,11 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
         selectedId = null
         creationRequestId = UUID.randomUUID().toString()
         preparing = true
+        preparingCustom=false
         selectedPm1=masters.firstOrNull{it.isMyProfile}?.id
         notice = null
     }
-    BackHandler(enabled = preparing || selectedId != null || showingMasters || showingWork || showingJournal) {
+    BackHandler(enabled = preparing || preparingCustom || selectedId != null || showingMasters || showingWork || showingJournal) {
         if(showingJournal && initialJournal) onBack()
         showingJournal=false
         showingWork=false
@@ -139,6 +144,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
         showingMasters=false
         selectedId = null
         preparing = false
+        preparingCustom = false
     }
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         when {
@@ -258,6 +264,26 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                         catch(e:Exception){notice=e.message}
                         finally{pending=false}
                     }
+                }
+            )
+            preparingCustom -> P10CustomProgrammeScreen(
+                staff=masters,selectedPm1=selectedPm1,notice=notice,pending=pending,
+                onPm1Selected={selectedPm1=it},
+                onBack={preparingCustom=false},
+                onCreate={plan,suite,guests->
+                    val request=creationRequestId
+                    val pm1=selectedPm1
+                    refreshAfter(
+                        action={
+                            val saved=repo.start(
+                                plan,
+                                SessionMetadata(suite=suite,guestCount=guests),
+                                requestId=request
+                            )
+                            if(pm1!=null)staffRepo.appointPm1(saved.id,pm1)
+                            saved
+                        },isCreation=true
+                    )
                 }
             )
             preparing -> B22PrepareScreen(
