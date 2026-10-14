@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kz.terensai.rhythm.feature.session.SuitePicker
+import kz.terensai.rhythm.feature.session.B23ShiftFlow
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 
 /**
@@ -36,19 +37,38 @@ fun N1NavigationShell(
 ) {
     var tab by rememberSaveable {mutableStateOf("home")}
     var chosenSuite by rememberSaveable {mutableStateOf("")}
-    BackHandler(enabled=tab!="home"){tab="home"}
+    var mastersInSettings by rememberSaveable {mutableStateOf(false)}
+    var newProgrammeRequested by rememberSaveable {mutableIntStateOf(0)}
+    var prepareNewProgramme by rememberSaveable {mutableStateOf(false)}
+    fun openNewProgramme(){
+        prepareNewProgramme=true
+        newProgrammeRequested+=1
+        tab="shift"
+    }
+    BackHandler(enabled=tab!="home" && !mastersInSettings){tab="home"}
     Column(Modifier.fillMaxSize().background(C.canvas)){
         Box(Modifier.weight(1f)){
-            when(tab){
+            if(mastersInSettings) {
+                B23ShiftFlow(onBack={mastersInSettings=false},initialMasters=true)
+            } else when(tab){
+                "shift","reports"->{
+                    key(tab,newProgrammeRequested){
+                        B23ShiftFlow(
+                            onBack={tab="home"},
+                            initialNew=tab=="shift" && prepareNewProgramme,
+                            initialJournal=tab=="reports"
+                        )
+                    }
+                }
                 "programmes"->ProgrammesScreen(
                     hasActiveSession=hasActiveSession,
                     onBack={tab="home"},
-                    onPilot=openPilotTimer,
+                    onPilot=::openNewProgramme,
                     showQa=showQa,
                     onQa=openQa,
                     showNewTimeline=true,
                     showMultiSession=true,
-                    onShift=openShift
+                    onShift={tab="shift"}
                 )
                 "analytics"->N1InfoScreen(
                     title="Аналитика",
@@ -59,7 +79,7 @@ fun N1NavigationShell(
                         "Для текущих подтверждённых записей используй «Отчёты» → Журнал работы."
                     ),
                     primaryLabel="Открыть мои отчёты",
-                    onPrimary=openReports
+                    onPrimary={tab="reports"}
                 )
                 "settings"->Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -78,10 +98,10 @@ fun N1NavigationShell(
                         Text("Добавляй и переименовывай места работы. Исторические отчёты сохраняют название сьюта на момент записи.",
                             color=C.secondary,fontSize=13.sp)
                         SuitePicker(selected=chosenSuite,onSelected={chosenSuite=it})
-                        Text("Проверь нумерацию: для №3–5 нужно уточнить последовательность. Существующие данные не переименовываются автоматически.",
+                        Text("Порядок: 1 Көркемдік · 2 Өркендеу · 3 Байлық · 4 Амандық · 5 Сәттілік. История предыдущих сессий сохраняется.",
                             color=C.bronze,fontSize=12.sp)
                     }
-                    OutlinedButton(onClick=openMasters,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
+                    OutlinedButton(onClick={mastersInSettings=true},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
                         Text("Мастера · мой профиль и справочник",color=C.amber)
                     }
                     Column(
@@ -98,10 +118,10 @@ fun N1NavigationShell(
                 else->WelcomeScreen(
                     hasActiveSession=hasActiveSession,
                     onProgrammes={tab="programmes"},
-                    onContinue=openShift,
+                    onContinue={tab="shift"},
                     showNewTimeline=true,
                     showMultiSession=true,
-                    onShift=openShift
+                    onShift={tab="shift"}
                 )
             }
         }
@@ -109,10 +129,10 @@ fun N1NavigationShell(
             selected=tab,
             onHome={tab="home"},
             onProgrammes={tab="programmes"},
-            onShift=openShift,
-            onReports=openReports,
+            onShift={tab="shift"},
+            onReports={tab="reports"},
             onAnalytics={tab="analytics"},
-            onSettings={tab="settings"}
+            onSettings={mastersInSettings=false;tab="settings"}
         )
     }
 }
