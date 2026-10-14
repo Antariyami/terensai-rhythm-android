@@ -158,7 +158,8 @@ internal fun ProgrammesScreen(
   showQa:Boolean,onQa:()->Unit,
   showNewTimeline:Boolean,
   showMultiSession:Boolean,
-  onShift:()->Unit
+  onShift:()->Unit,
+  onCustom:(()->Unit)?=null
 ) {
   var selectionId by rememberSaveable { mutableStateOf<String?>(null) }
   val chosen=ProgrammeCatalog.get(selectionId ?: "")
@@ -180,7 +181,7 @@ internal fun ProgrammesScreen(
     Spacer(Modifier.height(20.dp))
     Text("Выберите программу",color=C.white,fontSize=26.sp,fontWeight=FontWeight.Bold)
     Spacer(Modifier.height(6.dp))
-    Text("Выберите сценарий. Неподтверждённые программы — пока только для просмотра.",
+    Text("ТАНЫСУ работает. Для других штатных программ маршруты уточняются. Свою программу можно собрать вручную.",
       color=C.secondary,fontSize=13.sp,lineHeight=19.sp)
     Spacer(Modifier.height(14.dp))
     LazyVerticalGrid(
@@ -226,7 +227,11 @@ internal fun ProgrammesScreen(
           Text(programme.summary,color=C.white)
           Text(programme.structure,color=C.secondary)
           Text(displayDuration(programme.durationMinutes),color=C.amber)
-          if(!pilot) Text("Сценарий пока не готов к запуску. Детальные этапы будут подключены в B2.",
+          if(programme.status==TemplateStatus.CUSTOM) Text(
+            if(onCustom!=null) "Создай собственные этапы и запусти их в личной смене."
+            else "Создание собственной программы доступно в новой версии P1.",
+            color=C.secondary)
+          else if(!pilot) Text("Исполняемый маршрут ещё не утверждён. Сценарий не запускается.",
             color=C.secondary)
           else Text(if(showNewTimeline)
             "Настройте личный пилотный маршрут на 180 минут: после запуска он будет сохранён в Room."
@@ -238,8 +243,11 @@ internal fun ProgrammesScreen(
         TextButton(onClick={
           selectionId=null
           if(pilot) onPilot()
+          else if(programme.status==TemplateStatus.CUSTOM) onCustom?.invoke()
         }) {
-          Text(if(pilot) (if(showNewTimeline) (if(showMultiSession) "Начать новую программу" else "Настроить / продолжить") else "Открыть пилотный таймер") else "Понятно",color=C.amber)
+          Text(if(pilot) (if(showNewTimeline) (if(showMultiSession) "Начать новую программу" else "Настроить / продолжить") else "Открыть пилотный таймер")
+            else if(programme.status==TemplateStatus.CUSTOM && onCustom!=null) "Составить маршрут"
+            else "Понятно",color=C.amber)
         }
       },
       dismissButton={
@@ -259,7 +267,7 @@ private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
     modifier=Modifier.fillMaxWidth().height(196.dp)
       .clip(shape)
       .background(C.panel)
-      .border(1.dp,if(pilot) C.bronze else C.border,shape)
+      .border(1.dp,if(pilot || custom) C.bronze else C.border,shape)
       .clickable(onClick=onClick)
       .semantics { contentDescription=item.name+", "+displayDuration(item.durationMinutes) }
   ) {
@@ -277,8 +285,8 @@ private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
             fontSize=20.sp,fontWeight=FontWeight.SemiBold)
         }
         Spacer(Modifier.width(8.dp))
-        Text(if(pilot) "ПИЛОТ" else if(item.status==TemplateStatus.PREVIEW) "ПРЕВЬЮ" else "ЧЕРНОВИК",
-          color=if(pilot) C.success else C.secondary,fontSize=10.sp,
+        Text(if(pilot) "ПИЛОТ" else if(custom) "СОЗДАТЬ" else "ОЖИДАЕТ МАРШРУТ",
+          color=if(pilot || custom) C.success else C.secondary,fontSize=10.sp,
           fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis)
       }
       Column {
