@@ -24,6 +24,9 @@ import kz.terensai.rhythm.data.JournalLine
 import kz.terensai.rhythm.data.WorkJournalLabels
 import kz.terensai.rhythm.data.WorkJournalReport
 import kz.terensai.rhythm.data.TelegramWorkReport
+import kz.terensai.rhythm.data.TelegramReportPeriod
+import kz.terensai.rhythm.data.TelegramPeriodReports
+import kz.terensai.rhythm.data.TelegramShare
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.data.ProgrammeStageCandidates
 import kz.terensai.rhythm.data.ReportableProgrammeStage
@@ -60,6 +63,8 @@ fun B243JournalScreen(
     var copied by remember { mutableStateOf(false) }
     var telegramCopied by remember { mutableStateOf(false) }
     var showTelegramPreview by remember { mutableStateOf(false) }
+    var telegramPeriod by remember {mutableStateOf(TelegramReportPeriod.TODAY)}
+    var telegramShareError by remember {mutableStateOf<String?>(null)}
     var stageToConfirm by remember {mutableStateOf<ReportableProgrammeStage?>(null)}
     val dayRows=entries.filter{WorkJournalReport.dayOf(it)==date}
     val programmeStages=ProgrammeStageCandidates.of(programmeSessions,date)
@@ -73,7 +78,12 @@ fun B243JournalScreen(
     }
     val done=WorkJournalReport.completed(filtered)
     val summary=WorkJournalReport.message(date,masterName,filtered)
-    val telegram=TelegramWorkReport.message(date,masterName,filtered)
+    // The export period is independent of S13's historical date/status filters:
+    // a monthly/half-year archive always includes all completed work for this master.
+    val telegramExport=remember(entries,masterName,telegramPeriod) {
+        TelegramPeriodReports.generate(telegramPeriod,masterName,entries)
+    }
+    val telegram=telegramExport.text
 
     if(stageToConfirm!=null) AlertDialog(
         onDismissRequest={stageToConfirm=null},
@@ -295,25 +305,51 @@ fun B243JournalScreen(
         Text("Дата, сьют, начало, программа, исполнитель, число парений и PM1. " +
             "Незавершённые процедуры не учитываются.",
             color=C.secondary,fontSize=12.sp)
+        Text("Период отчёта",color=C.cream,fontSize=13.sp)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            TelegramReportPeriod.entries.forEach{choice->
+                FilterChip(
+                    selected=telegramPeriod==choice,
+                    onClick={telegramPeriod=choice;telegramCopied=false;showTelegramPreview=false},
+                    label={Text(choice.label)}
+                )
+            }
+        }
+        Text("${telegramExport.title} · ${telegramExport.completedSteamings} парений · " +
+            "${telegramExport.daysWithWork} дней с парениями",
+            color=C.secondary,fontSize=12.sp)
         OutlinedButton(modifier=Modifier.fillMaxWidth(),onClick={showTelegramPreview=!showTelegramPreview}){
-            Text(if(showTelegramPreview)"Скрыть образец Telegram" else "Посмотреть текст Telegram",
+            Text(if(showTelegramPreview)"Скрыть предпросмотр" else "Посмотреть текст отчёта",
                 color=C.amber)
         }
-        if(showTelegramPreview) {
-            Text(telegram,color=C.cream,fontSize=13.sp)
+        if(showTelegramPreview){
+            Text(if(telegram.length>1800)telegram.take(1800)+"\n… (полный отчёт в файле)"
+                 else telegram,color=C.cream,fontSize=13.sp)
         }
-        Button(modifier=Modifier.fillMaxWidth(),onClick={
-            val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Отчёт для Telegram",telegram))
-            telegramCopied=true
-        }){Text(if(telegramCopied)"Telegram-отчёт скопирован" else "Скопировать для Telegram")}
+        if(telegramPeriod!=TelegramReportPeriod.ALL){
+            Button(modifier=Modifier.fillMaxWidth(),onClick={
+                val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("ПАРИТМ · Telegram",telegram))
+                telegramCopied=true
+            }){Text(if(telegramCopied)"Текст скопирован" else "Скопировать отчёт")}
+        }
         OutlinedButton(modifier=Modifier.fillMaxWidth(),onClick={
-            val intent=Intent(Intent.ACTION_SEND).apply{
-                type="text/plain"
-                putExtra(Intent.EXTRA_TEXT,telegram)
+            try{
+                telegramShareError=null
+                TelegramShare.share(context,telegramPeriod,telegramExport)
+            }catch(e:Exception){
+                telegramShareError="Не удалось отправить отчёт: "+(e.message?:"проверь приложения")
             }
-            context.startActivity(Intent.createChooser(intent,"Поделиться отчётом в Telegram"))
-        }){Text("Отправить в Telegram · выбрать приложение",color=C.amber)}
+        }){
+            Text(if(telegramPeriod==TelegramReportPeriod.ALL)
+                "Отправить весь архив · HTML-файл"
+                else "Отправить отчёт · Telegram / другое приложение",color=C.amber)
+        }
+        telegramShareError?.let{Text(it,color=C.overrun,fontSize=12.sp)}
+        Text("Большие отчёты автоматически отправляются как TXT-файл, весь архив — " +
+            "как HTML-файл. Отправка происходит только после выбора приложения.",
+            color=C.secondary,fontSize=12.sp)
         Text("Для ранее записанных внешних программ без идентификатора визита " +
             "каждая завершённая процедура выводится отдельным блоком: " +
             "это исключает ошибочное объединение двух посещений.",
