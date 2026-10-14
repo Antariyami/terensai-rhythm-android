@@ -40,14 +40,25 @@ fun N1NavigationShell(
     var mastersInSettings by rememberSaveable {mutableStateOf(false)}
     var newProgrammeRequested by rememberSaveable {mutableIntStateOf(0)}
     var prepareNewProgramme by rememberSaveable {mutableStateOf(false)}
+    var prepareCustomProgramme by rememberSaveable {mutableStateOf(false)}
     fun openNewProgramme(){
         prepareNewProgramme=true
+        prepareCustomProgramme=false
+        newProgrammeRequested+=1
+        tab="shift"
+    }
+    fun openCustomProgramme(){
+        prepareNewProgramme=false
+        prepareCustomProgramme=true
         newProgrammeRequested+=1
         tab="shift"
     }
     BackHandler(enabled=tab!="home" && !mastersInSettings){tab="home"}
     LaunchedEffect(tab,newProgrammeRequested) {
-        if(tab=="shift")prepareNewProgramme=false
+        if(tab=="shift"){
+            prepareNewProgramme=false
+            prepareCustomProgramme=false
+        }
     }
     Column(Modifier.fillMaxSize().background(C.canvas)){
         Box(Modifier.weight(1f)){
@@ -59,6 +70,7 @@ fun N1NavigationShell(
                         B23ShiftFlow(
                             onBack={tab="home"},
                             initialNew=tab=="shift" && prepareNewProgramme,
+                            initialCustom=tab=="shift" && prepareCustomProgramme,
                             initialJournal=tab=="reports"
                         )
                     }
@@ -67,6 +79,7 @@ fun N1NavigationShell(
                     hasActiveSession=hasActiveSession,
                     onBack={tab="home"},
                     onPilot=::openNewProgramme,
+                    onCustom=::openCustomProgramme,
                     showQa=showQa,
                     onQa=openQa,
                     showNewTimeline=true,

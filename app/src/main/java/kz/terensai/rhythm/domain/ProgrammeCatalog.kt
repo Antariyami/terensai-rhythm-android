@@ -1,7 +1,11 @@
 package kz.terensai.rhythm.domain
 
-/** A catalog card is a preview; only B2 provides a persisted, versioned executable stage plan. */
-enum class TemplateStatus { PILOT, PREVIEW, NEEDS_VERIFICATION }
+/**
+ * The six approved catalogue cards. ONLY Tanysu has an executable built-in
+ * itinerary. Non-pilot package durations/stages are never guessed.
+ * Custom programme is created from explicitly entered stages.
+ */
+enum class TemplateStatus { PILOT, PREVIEW, NEEDS_VERIFICATION, CUSTOM }
 
 data class ProgrammeSummary(
   val id: String,
@@ -15,15 +19,30 @@ data class ProgrammeSummary(
 
 object ProgrammeCatalog {
   val programmes = listOf(
-    ProgrammeSummary("tanysu","Танысу","Т",180,"Знакомство с банной традицией","3 коллективных парения",TemplateStatus.PILOT),
-    ProgrammeSummary("light","Light","L",240,"Индивидуальный формат","Прогрев и индивидуальное парение",TemplateStatus.PREVIEW),
-    ProgrammeSummary("grand","Grand","G",240,"Программа для компании","2 коллективных парения",TemplateStatus.PREVIEW),
-    ProgrammeSummary("premium","Premium","P",300,"Насыщенный банный ритуал","Парения, SPA и массаж",TemplateStatus.PREVIEW),
-    ProgrammeSummary("supreme","Supreme","S",300,"Персональный банный ритуал","3 этапа парения и SPA",TemplateStatus.PREVIEW),
-    ProgrammeSummary("select","Select","Se",null,"Детали уточняются","Время пока не подтверждено",TemplateStatus.NEEDS_VERIFICATION),
-    ProgrammeSummary("orda","Orda","O",null,"Детали уточняются","Время пока не подтверждено",TemplateStatus.NEEDS_VERIFICATION),
-    ProgrammeSummary("tan-light","Tan Light","TL",null,"Детали уточняются","Время пока не подтверждено",TemplateStatus.NEEDS_VERIFICATION),
-    ProgrammeSummary("special","Special","Sp",null,"Детали уточняются","Время пока не подтверждено",TemplateStatus.NEEDS_VERIFICATION)
+    ProgrammeSummary(
+      "tanysu","ТАНЫСУ","Т",180,
+      "Пилотный банный маршрут","3 коллективных парения · тестовый план",TemplateStatus.PILOT
+    ),
+    ProgrammeSummary(
+      "light","LIGHT","L",null,
+      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+    ),
+    ProgrammeSummary(
+      "grand","GRAND","G",null,
+      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+    ),
+    ProgrammeSummary(
+      "premium","PREMIUM","P",null,
+      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+    ),
+    ProgrammeSummary(
+      "supreme","SUPREME","S",null,
+      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+    ),
+    ProgrammeSummary(
+      "custom","Своя программа","+",null,
+      "Создай маршрут из собственных этапов","Название, этапы, время и сьют задаёт мастер",TemplateStatus.CUSTOM
+    )
   )
   fun get(id:String) = programmes.firstOrNull { it.id == id }
 }

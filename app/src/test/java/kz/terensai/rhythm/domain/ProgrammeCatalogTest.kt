@@ -4,28 +4,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProgrammeCatalogTest {
-  @Test fun durationsFollowApprovedPackageCatalog() {
-    val p=ProgrammeCatalog.programmes.associateBy { it.id }
+  @Test fun onlySixUserApprovedCardsInExactOrder() {
+    assertEquals(
+      listOf("tanysu","light","grand","premium","supreme","custom"),
+      ProgrammeCatalog.programmes.map{it.id}
+    )
+    for(old in listOf("select","orda","tan-light","sunlight","special")){
+      assertNull("retired package must not be displayed: $old",ProgrammeCatalog.get(old))
+    }
+  }
+  @Test fun onlyPilotCanExecuteBuiltInItineraryAndFourTemplatesHaveUnverifiedTimes() {
+    val p=ProgrammeCatalog.programmes.associateBy{it.id}
     assertEquals(180,p.getValue("tanysu").durationMinutes)
-    assertEquals(240,p.getValue("light").durationMinutes)
-    assertEquals(240,p.getValue("grand").durationMinutes)
-    assertEquals(300,p.getValue("premium").durationMinutes)
-    assertEquals(300,p.getValue("supreme").durationMinutes)
+    assertEquals(TemplateStatus.PILOT,p.getValue("tanysu").status)
+    for(id in listOf("light","grand","premium","supreme")){
+      assertNull(p.getValue(id).durationMinutes)
+      assertEquals(TemplateStatus.PREVIEW,p.getValue(id).status)
+    }
+    assertEquals(TemplateStatus.CUSTOM,p.getValue("custom").status)
+    assertNull(p.getValue("custom").durationMinutes)
   }
-  @Test fun draftsHaveNoInventedDuration() {
-    assertTrue(ProgrammeCatalog.programmes
-      .filter { it.status==TemplateStatus.NEEDS_VERIFICATION }
-      .all { it.durationMinutes==null })
-  }
-  @Test fun onlyPilotCanOpenPreviousTimer() {
-    assertEquals(listOf("tanysu"),ProgrammeCatalog.programmes
-      .filter { it.status==TemplateStatus.PILOT }.map { it.id })
-  }
-  @Test fun uniqueIdentifiersForNavigationAndArchives() {
-    val ids=ProgrammeCatalog.programmes.map { it.id }
+  @Test fun uniqueStableIdentifiersAndRussianDurations(){
+    val ids=ProgrammeCatalog.programmes.map{it.id}
     assertEquals(ids.size,ids.toSet().size)
-  }
-  @Test fun russianDurationIsCorrect() {
     assertEquals("3 часа",displayDuration(180))
     assertEquals("4 часа",displayDuration(240))
     assertEquals("5 часов",displayDuration(300))
