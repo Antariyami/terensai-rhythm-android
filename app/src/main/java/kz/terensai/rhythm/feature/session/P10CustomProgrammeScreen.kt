@@ -63,7 +63,7 @@ fun P10CustomProgrammeScreen(
         .verticalScroll(rememberScrollState())
         .padding(horizontal=18.dp,vertical=16.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)){
-        TextButton(onClick=onBack){Text("‹ Каталог программ",color=C.amber)}
+        TextButton(onClick=onBack){Text("‹ Моя смена",color=C.amber)}
         Text("ПАРИТМ · СВОЙ МАРШРУТ",color=C.bronze,fontSize=12.sp)
         Text("Своя программа",color=C.white,fontSize=28.sp,fontWeight=FontWeight.Bold)
         Text("Каждый этап и его длительность вводишь сам. Это личный маршрут, а не утверждённый стандарт TERENSAI.",
