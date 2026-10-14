@@ -56,7 +56,7 @@ fun P10CustomProgrammeScreen(
     )
     val problem=CustomProgrammePlan.validate(draft)
     val guestCount=guests.toIntOrNull()
-    val guestsValid=guests.isBlank() || guestCount in 1..30
+    val guestsValid=guests.isBlank() || (guestCount!=null && guestCount in 1..30)
     val total=draft.stages.sumOf{it.minutes?:0}
 
     Column(Modifier.fillMaxSize().background(C.canvas)
