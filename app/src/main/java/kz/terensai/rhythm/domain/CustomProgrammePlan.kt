@@ -4,7 +4,7 @@ package kz.terensai.rhythm.domain
  * A user-defined route is a snapshot, not a TERENSAI standard template.
  * Stage names and times come only from the person creating this programme.
  */
-data class CustomStageInput(val title:String,val minutes:Int?)
+data class CustomStageInput(val title:String,val minutes:Int?,val track:Track=Track.GUEST)
 
 data class CustomProgrammeDraft(
     val title:String,
@@ -34,7 +34,7 @@ object CustomProgrammePlan {
             val stage=StagePlan(
                 "custom-stage-${index+1}",
                 item.title.trim(),
-                Track.GUEST,
+                item.track,
                 offset,
                 duration
             )
