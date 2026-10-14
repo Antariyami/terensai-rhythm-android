@@ -262,6 +262,7 @@ internal fun ProgrammesScreen(
 @Composable
 private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
   val pilot=item.status==TemplateStatus.PILOT
+  val custom=item.status==TemplateStatus.CUSTOM
   val shape=RoundedCornerShape(18.dp)
   Box(
     modifier=Modifier.fillMaxWidth().height(196.dp)
