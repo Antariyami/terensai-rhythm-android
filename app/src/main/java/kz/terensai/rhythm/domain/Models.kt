@@ -3,7 +3,7 @@ package kz.terensai.rhythm.domain
 /** Domain is pure Kotlin, without Android or database imports. Timestamps use Unix epoch milliseconds. */
 fun interface Clock { fun epochMillis(): Long }
 enum class Track { GUEST, MASTER }
-enum class EventKind { START, PAUSE, RESUME, COMPLETE, SKIP }
+enum class EventKind { START, PAUSE, RESUME, COMPLETE, SKIP, REOPEN }
 enum class StageStatus { NOT_STARTED, RUNNING, PAUSED, COMPLETED, SKIPPED }
 
 data class StagePlan(

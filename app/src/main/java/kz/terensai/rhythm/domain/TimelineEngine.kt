@@ -29,6 +29,14 @@ class TimelineEngine(private val clock: Clock) {
                     EventKind.RESUME -> if (s.status == StageStatus.PAUSED) {
                         s.runningSince = e.atMs; s.status = StageStatus.RUNNING
                     }
+                    EventKind.REOPEN -> if (s.status == StageStatus.COMPLETED ||
+                        s.status == StageStatus.SKIPPED) {
+                        // Keep accumulated elapsed, do not count the gap after completion.
+                        if (s.start == null) s.start = e.atMs
+                        s.end = null
+                        s.runningSince = e.atMs
+                        s.status = StageStatus.RUNNING
+                    }
                     EventKind.COMPLETE, EventKind.SKIP -> {
                         val allowed = s.status == StageStatus.RUNNING || s.status == StageStatus.PAUSED ||
                             (e.kind == EventKind.SKIP && s.status == StageStatus.NOT_STARTED)

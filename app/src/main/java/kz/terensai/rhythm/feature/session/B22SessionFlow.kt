@@ -73,6 +73,7 @@ fun B22SessionFlow(onBack: () -> Unit) {
                 onCommand = { stageId, kind ->
                     execute { repo.perform(active.id, stageId, kind) }
                 },
+                onReopen = { stageId -> execute { repo.reopenPrevious(active.id, stageId) } },
                 onFinish = { execute { repo.finish(active.id) } }
             )
         }

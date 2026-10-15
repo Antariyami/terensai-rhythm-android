@@ -14,6 +14,9 @@ class SessionTransitionRulesTest {
         assertFalse(r.allowed(StageStatus.COMPLETED, EventKind.RESUME))
         assertFalse(r.allowed(StageStatus.SKIPPED, EventKind.COMPLETE))
         assertTrue(r.allowed(StageStatus.NOT_STARTED, EventKind.SKIP))
+        assertTrue(r.allowed(StageStatus.COMPLETED, EventKind.REOPEN))
+        assertTrue(r.allowed(StageStatus.SKIPPED, EventKind.REOPEN))
+        assertFalse(r.allowed(StageStatus.RUNNING, EventKind.REOPEN))
     }
 
     @Test fun remainingAndOverrunDoNotConflict() {

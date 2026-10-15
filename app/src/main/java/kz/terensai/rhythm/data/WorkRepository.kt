@@ -17,6 +17,9 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
             when(e.kind){
                 "START" -> {if(state=="READY"){since=e.atMs;state="RUNNING"}}
                 "RESUME" -> {if(state=="PAUSED"){since=e.atMs;state="RUNNING"}}
+                "REOPEN" -> {if(state=="COMPLETED" || state=="READY"){
+                    since=e.atMs;state="RUNNING"
+                }}
                 "PAUSE","COMPLETE" -> {
                     if(state=="RUNNING"){
                         elapsed+=(e.atMs-(since?:e.atMs)).coerceAtLeast(0L)
@@ -102,7 +105,7 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 sourceStageId=stageId
             )
             dao.create(row)
-            events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE")}.forEach{ event->
+            events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE","REOPEN")}.forEach{ event->
                 check(dao.append(WorkEventRow(
                     UUID.randomUUID().toString(),row.id,event.kind,event.atMs
                 ))!=-1L)
