@@ -26,7 +26,7 @@ class ChecklistRepository(
             }
         }
     }
-    suspend fun templates():List<ChecklistTemplate>=withContext(Dispatchers.IO){
+    suspend fun templates():List<ChecklistTemplate> = withContext(Dispatchers.IO){
         dao.templates().map{ChecklistJson.decode(it.json)}
     }
     suspend fun template(id:String):ChecklistTemplate?=withContext(Dispatchers.IO){
