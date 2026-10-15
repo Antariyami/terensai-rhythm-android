@@ -36,6 +36,7 @@ fun B23ShiftScreen(
     onMasters: () -> Unit = {},
     onWork: () -> Unit = {},
     onJournal: () -> Unit = {},
+    onChecklists: () -> Unit = {},
     leaders: Map<String,String> = emptyMap(),
     workItems: List<WorkView> = emptyList(),
     onOpenWork: (String)->Unit = {}
@@ -53,6 +54,9 @@ fun B23ShiftScreen(
             }
             OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Моё участие · личная процедура",color=C.amber)
+            }
+            OutlinedButton(onClick=onChecklists,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+                Text("✓ Чек-листы · сбор и приёмка смены",color=C.amber)
             }
             OutlinedButton(onClick=onJournal,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
                 Text("Отчёты · журнал, Telegram и WhatsApp",color=C.amber)

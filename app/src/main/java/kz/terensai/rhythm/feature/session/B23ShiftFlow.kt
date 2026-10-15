@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kz.terensai.rhythm.feature.checklists.P22ChecklistScreen
 import kz.terensai.rhythm.data.LocalInstallIdentity
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.data.SessionRepository
@@ -48,6 +49,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     val journalRepo=remember(context){WorkJournalRepository(
         ParitmDatabase.get(context),LocalInstallIdentity.get(context))}
     val scope = rememberCoroutineScope()
+    var showingChecklists by rememberSaveable{mutableStateOf(false)}
     var showingJournal by rememberSaveable{mutableStateOf(initialJournal)}
     var journalLines by remember{mutableStateOf<List<JournalLine>>(emptyList())}
     var programmeHistory by remember{mutableStateOf<List<SavedSession>>(emptyList())}
@@ -136,7 +138,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
         selectedPm1=masters.firstOrNull{it.isMyProfile}?.id
         notice = null
     }
-    BackHandler(enabled = preparing || preparingCustom || selectedId != null || showingMasters || showingWork || showingJournal) {
+    BackHandler(enabled = preparing || preparingCustom || selectedId != null || showingMasters || showingWork || showingJournal || showingChecklists) {
+        if(showingChecklists){showingChecklists=false;return@BackHandler}
         if(showingJournal && initialJournal) onBack()
         showingJournal=false
         showingWork=false
@@ -149,6 +152,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     Box(Modifier.fillMaxSize().background(C.canvas)) {
         when {
             !loaded -> Text("Восстанавливаем мою смену…", color=C.white)
+            showingChecklists -> P22ChecklistScreen(onBack={showingChecklists=false})
             showingJournal -> B243JournalScreen(
                 masterName=masters.firstOrNull{it.isMyProfile}?.displayName?:"Мастер",
                 entries=journalLines,pending=pending,notice=notice,
@@ -315,7 +319,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                     B23ShiftScreen(
                         sessions=items,pending=pending,notice=notice,
                         onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
-                        onMasters={showingMasters=true},onWork={showingWork=true},onJournal={showingJournal=true},leaders=leaders,
+                        onMasters={showingMasters=true},onWork={showingWork=true},onJournal={showingJournal=true},onChecklists={showingChecklists=true},leaders=leaders,
                         workItems=myWorks,onOpenWork={id->creatingNewWork=false;personalWorkId=id;personalWork=myWorks.firstOrNull{it.row.id==id};showingWork=true}
                     )
                 } else {
@@ -339,7 +343,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                 onBack=onBack,onNew=::showNew,onOpen={ selectedId=it },
                 onMasters={showingMasters=true},
                 onWork={showingWork=true},
-                onJournal={showingJournal=true},
+                onJournal={showingJournal=true},onChecklists={showingChecklists=true},
                 leaders=leaders,
                 workItems=myWorks,
                 onOpenWork={id->
