@@ -107,7 +107,9 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 pm1NameSnapshot=leader?.displayName,
                 suiteNameSnapshot=suite,
                 programmeNameSnapshot=session.templateTitle,
-                sourceStageId=stageId
+                sourceStageId=stageId,
+                serviceLabelSnapshot=if(stage.title.contains("экспресс",ignoreCase=true))
+                    "Коллективное экспресс-парение" else null
             )
             dao.create(row)
             events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE","SKIP","REOPEN")}.forEach{ event->

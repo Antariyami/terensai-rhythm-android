@@ -7,7 +7,7 @@ class TerensaiServiceCatalogTest {
     @Test fun originalScreenshotServiceDurationsAndPrices() {
         val all=TerensaiServiceCatalog.entries
         assertEquals(all.map{it.id}.toSet().size,all.size)
-        assertEquals(15,all.size)
+        assertEquals(17,all.size)
         assertEquals(45,TerensaiServiceCatalog.byId("individual_steam")!!.suggestedMinutes)
         assertEquals(15,TerensaiServiceCatalog.byId("collective_express")!!.suggestedMinutes)
         assertEquals(40,TerensaiServiceCatalog.byId("peeling")!!.suggestedMinutes)

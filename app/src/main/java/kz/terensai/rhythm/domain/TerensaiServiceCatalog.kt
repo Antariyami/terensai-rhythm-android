@@ -18,6 +18,8 @@ object TerensaiServiceCatalog {
         TerensaiService("massage_pilgrim","Ступы пилигрима · ноги","MASSAGE",30,20000),
         TerensaiService("massage_naurzum","Источник Наурзум · лимфодренаж","MASSAGE",60,40000),
         TerensaiService("massage_aksoran","Мощь Аксоран · глубокий массаж","MASSAGE",60,40000),
+        TerensaiService("spa_unspecified","SPA-процедура (без уточнения)","OTHER",30,0),
+        TerensaiService("body_wash","Помывка тела (уточнить вид)","WASHING",40,0),
         TerensaiService("scrub","Скрабирование","OTHER",40,25000),
         TerensaiService("peeling","Пилинг","PEELING",40,25000),
         TerensaiService("washing_broom","Пенная помывка веником","WASHING",40,25000),

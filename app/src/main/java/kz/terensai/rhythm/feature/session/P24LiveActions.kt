@@ -182,7 +182,8 @@ fun P24LiveActions(
                     onValueChange={minutes=it.filter(Char::isDigit).take(3)},
                     label={Text("Плановая длительность, мин.")},
                     modifier=Modifier.fillMaxWidth(),singleLine=true)
-                Text("Справочно: ${currentService.retailKzt} ₸. Фактическая услуга учтётся только после нажатия «Завершить».",
+                Text((if(currentService.retailKzt>0) "Справочная цена: ${currentService.retailKzt} ₸. " else "Цена не установлена. ") +
+                    "Фактическая работа учитывается только после нажатия «Завершить».",
                     color=C.secondary,fontSize=12.sp)
             }
         },
