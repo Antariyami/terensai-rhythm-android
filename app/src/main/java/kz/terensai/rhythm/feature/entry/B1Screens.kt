@@ -159,7 +159,8 @@ internal fun ProgrammesScreen(
   showNewTimeline:Boolean,
   showMultiSession:Boolean,
   onShift:()->Unit,
-  onCustom:(()->Unit)?=null
+  onCustom:(()->Unit)?=null,
+  onStandard:((String)->Unit)?=null
 ) {
   var selectionId by rememberSaveable { mutableStateOf<String?>(null) }
   val chosen=ProgrammeCatalog.get(selectionId ?: "")
@@ -232,7 +233,11 @@ internal fun ProgrammesScreen(
             if(onCustom!=null) "Создай собственные этапы и запусти их в личной смене."
             else "Создание собственной программы доступно в новой версии P1.",
             color=C.secondary)
-          else if(!pilot) Text("Исполняемый маршрут ещё не утверждён. Сценарий не запускается.",
+          else if(programme.id=="supreme") Text(
+            "SUPREME — пока только карточка; детальный маршрут не согласован.",
+            color=C.secondary)
+          else if(!pilot) Text(
+            "Доступен редактируемый маршрут по рабочим ориентирам мастера. Перед запуском укажи число гостей, параллельность и минуты.",
             color=C.secondary)
           else Text(if(showNewTimeline)
             "Настройте личный пилотный маршрут на 180 минут: после запуска он будет сохранён в Room."
@@ -245,9 +250,12 @@ internal fun ProgrammesScreen(
           selectionId=null
           if(pilot) onPilot()
           else if(programme.status==TemplateStatus.CUSTOM) onCustom?.invoke()
+          else if(programme.id in setOf("light","grand","premium")) onStandard?.invoke(programme.id)
         }) {
           Text(if(pilot) (if(showNewTimeline) (if(showMultiSession) "Начать новую программу" else "Настроить / продолжить") else "Открыть пилотный таймер")
             else if(programme.status==TemplateStatus.CUSTOM && onCustom!=null) "Составить маршрут"
+            else if(programme.id in setOf("light","grand","premium") && onStandard!=null)
+              "Настроить рабочий маршрут"
             else "Понятно",color=C.amber)
         }
       },

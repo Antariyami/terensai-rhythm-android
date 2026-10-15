@@ -43,15 +43,25 @@ fun N1NavigationShell(
     var newProgrammeRequested by rememberSaveable {mutableIntStateOf(0)}
     var prepareNewProgramme by rememberSaveable {mutableStateOf(false)}
     var prepareCustomProgramme by rememberSaveable {mutableStateOf(false)}
+    var standardProgrammeToPrepare by rememberSaveable {mutableStateOf<String?>(null)}
+    fun openStandardProgramme(id:String){
+        prepareNewProgramme=false
+        prepareCustomProgramme=false
+        standardProgrammeToPrepare=id
+        newProgrammeRequested+=1
+        tab="shift"
+    }
     fun openNewProgramme(){
         prepareNewProgramme=true
         prepareCustomProgramme=false
+        standardProgrammeToPrepare=null
         newProgrammeRequested+=1
         tab="shift"
     }
     fun openCustomProgramme(){
         prepareNewProgramme=false
         prepareCustomProgramme=true
+        standardProgrammeToPrepare=null
         newProgrammeRequested+=1
         tab="shift"
     }
@@ -60,6 +70,7 @@ fun N1NavigationShell(
         if(tab=="shift"){
             prepareNewProgramme=false
             prepareCustomProgramme=false
+            standardProgrammeToPrepare=null
         }
     }
     Column(Modifier.fillMaxSize().background(C.canvas)){
@@ -75,6 +86,7 @@ fun N1NavigationShell(
                             onBack={tab="home"},
                             initialNew=tab=="shift" && prepareNewProgramme,
                             initialCustom=tab=="shift" && prepareCustomProgramme,
+                            initialStandard=if(tab=="shift") standardProgrammeToPrepare else null,
                             initialJournal=tab=="reports"
                         )
                     }
@@ -84,6 +96,7 @@ fun N1NavigationShell(
                     onBack={tab="home"},
                     onPilot=::openNewProgramme,
                     onCustom=::openCustomProgramme,
+                    onStandard=::openStandardProgramme,
                     showQa=showQa,
                     onQa=openQa,
                     showNewTimeline=true,
