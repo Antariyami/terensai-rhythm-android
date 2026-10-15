@@ -16,6 +16,8 @@ import kz.terensai.rhythm.data.LocalInstallIdentity
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.data.SessionRepository
 import kz.terensai.rhythm.data.StaffRepository
+import kz.terensai.rhythm.data.ProgrammeActionRepository
+import kz.terensai.rhythm.data.ProgrammeActionState
 import kz.terensai.rhythm.data.WorkRepository
 import kz.terensai.rhythm.data.WorkView
 import kz.terensai.rhythm.data.WorkJournalRepository
@@ -26,6 +28,8 @@ import kz.terensai.rhythm.data.room.SessionMetadata
 import kz.terensai.rhythm.domain.EventKind
 import kz.terensai.rhythm.domain.PilotTanysuPlan
 import kz.terensai.rhythm.domain.ProgramPlan
+import kz.terensai.rhythm.domain.TerensaiServiceCatalog
+import kz.terensai.rhythm.domain.StageStatus
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import java.util.UUID
 
@@ -46,6 +50,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     }
     val staffRepo=remember(context) { StaffRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
     val workRepo=remember(context) { WorkRepository(ParitmDatabase.get(context),LocalInstallIdentity.get(context)) }
+    val actionRepo=remember(context){ProgrammeActionRepository(ParitmDatabase.get(context))}
     val journalRepo=remember(context){WorkJournalRepository(
         ParitmDatabase.get(context),LocalInstallIdentity.get(context))}
     val scope = rememberCoroutineScope()
@@ -58,6 +63,8 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     var personalWork by remember {mutableStateOf<WorkView?>(null)}
     var creatingNewWork by rememberSaveable {mutableStateOf(false)}
     var myWorks by remember { mutableStateOf<List<WorkView>>(emptyList()) }
+    var sessionWorks by remember { mutableStateOf<List<WorkView>>(emptyList()) }
+    var sessionActions by remember { mutableStateOf(ProgrammeActionState(emptyList(),0,0L)) }
 
     var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
     var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
@@ -86,6 +93,10 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                     masters = staffRepo.all()
                     val mine=masters.firstOrNull { it.isMyProfile }?.id
                     myWorks=if(mine!=null) workRepo.all(mine) else emptyList()
+                    if(selectedId!=null){
+                        sessionWorks=workRepo.sessionWorks(selectedId!!)
+                        sessionActions=actionRepo.view(selectedId!!)
+                    }
                     if(showingJournal){
                         journalLines=if(mine!=null)journalRepo.all(mine) else emptyList()
                         programmeHistory=repo.allSessions()
@@ -124,6 +135,26 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
             } catch (e: Exception) {
                 notice = "Ошибка: " + (e.message ?: "проверь действие")
             } finally { pending = false }
+        }
+    }
+    fun doLiveAction(success:String,block:suspend ()->Unit){
+        if(pending)return
+        pending=true
+        scope.launch {
+            try {
+                block()
+                val current=selectedId
+                if(current!=null){
+                    sessionWorks=workRepo.sessionWorks(current)
+                    sessionActions=actionRepo.view(current)
+                }
+                items=repo.activeSessions()
+                val mine=masters.firstOrNull{it.isMyProfile}?.id
+                if(mine!=null)myWorks=workRepo.all(mine)
+                notice=success
+            }catch(e:Exception){
+                notice="Ошибка: "+(e.message?:"повтори действие")
+            }finally{pending=false}
         }
     }
     fun showNew() {
@@ -338,6 +369,51 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                         onFinish={
                             val id=session.id
                             refreshAfter(action={ repo.finish(id) })
+                        },
+                        extraDurationMs=sessionActions.extensionMs,
+                        liveActions={
+                            val running=session.progress.stages.firstOrNull{it.status==StageStatus.RUNNING}
+                            P24LiveActions(
+                                suite=session.metadata.suite,masters=masters,
+                                works=sessionWorks,actions=sessionActions,
+                                currentRunningStageId=running?.plan?.id,
+                                pending=pending,
+                                onCreateProcedure={staffId,serviceId,role,minutes,requestId->
+                                    val service=TerensaiServiceCatalog.byId(serviceId)
+                                    if(service==null)notice="Услуга не найдена"
+                                    else doLiveAction("Дополнительная процедура создана. Нажми «Начать», когда мастер приступит."){
+                                        workRepo.create(masterId=staffId,sessionId=session.id,
+                                            role=role,procedure=service.workType,
+                                            plannedMinutes=minutes,
+                                            serviceLabelSnapshot=service.title,requestId=requestId)
+                                    }
+                                },
+                                onWorkCommand={workId,kind->
+                                    doLiveAction("Действие с процедурой записано в журнал"){
+                                        workRepo.command(workId,kind)
+                                    }
+                                },
+                                onBeginEvent={kind,comment,pauseId,requestId->
+                                    doLiveAction("Событие начато. Ход программы сохранён"){
+                                        actionRepo.begin(session.id,kind,comment,pauseId,requestId)
+                                    }
+                                },
+                                onEndEvent={entityId,requestId->
+                                    doLiveAction("Окончание события сохранено"){
+                                        actionRepo.finish(session.id,entityId,requestId)
+                                    }
+                                },
+                                onCorrectEvent={entityId,minutes,reason,requestId->
+                                    doLiveAction("Корректировка события добавлена в историю"){
+                                        actionRepo.correctMinutes(session.id,entityId,minutes,reason,requestId)
+                                    }
+                                },
+                                onExtraHour={requestId->
+                                    doLiveAction("Плановое время продлено на один час"){
+                                        actionRepo.addHour(session.id,requestId)
+                                    }
+                                }
+                            )
                         }
                     )
                 }

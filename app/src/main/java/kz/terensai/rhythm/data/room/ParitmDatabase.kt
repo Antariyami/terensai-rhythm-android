@@ -10,8 +10,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
     entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class,
-        ChecklistTemplateRow::class, ChecklistRunRow::class],
-    version = 8,
+        ChecklistTemplateRow::class, ChecklistRunRow::class,
+        ProgrammeActionRow::class],
+    version = 9,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
@@ -19,6 +20,7 @@ abstract class ParitmDatabase : RoomDatabase() {
     abstract fun staff(): StaffDao
     abstract fun work(): WorkDao
     abstract fun checklists(): ChecklistDao
+    abstract fun programmeActions(): ProgrammeActionDao
 
     companion object {
         /**
@@ -121,6 +123,26 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8,9) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE work_entries ADD COLUMN serviceLabelSnapshot TEXT")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS programme_action_events (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    entityId TEXT NOT NULL,
+                    sessionId TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    atMs INTEGER NOT NULL,
+                    recordedAtMs INTEGER NOT NULL,
+                    durationOverrideMs INTEGER,
+                    note TEXT NOT NULL,
+                    FOREIGN KEY(sessionId) REFERENCES sessions(id)
+                    ON UPDATE NO ACTION ON DELETE CASCADE)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_programme_action_events_sessionId ON programme_action_events(sessionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_programme_action_events_entityId ON programme_action_events(entityId)")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -128,7 +150,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7,MIGRATION_7_8).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7,MIGRATION_7_8,MIGRATION_8_9).build().also { instance = it }
             }
     }
 }

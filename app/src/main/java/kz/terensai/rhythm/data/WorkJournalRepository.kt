@@ -64,6 +64,8 @@ object WorkJournalLabels {
         "WASHING"->"Помывка веником"
         else->"Другая процедура"
     }
+    fun procedure(row:kz.terensai.rhythm.data.room.WorkRow):String =
+        row.serviceLabelSnapshot?.takeIf{it.isNotBlank()} ?: procedure(row.procedureType)
     fun state(state:String)=when(state) {
         "READY"->"Ожидает"
         "RUNNING"->"Идёт"

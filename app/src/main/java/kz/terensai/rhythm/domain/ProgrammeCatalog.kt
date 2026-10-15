@@ -2,7 +2,8 @@ package kz.terensai.rhythm.domain
 
 /**
  * The six approved catalogue cards. ONLY Tanysu has an executable built-in
- * itinerary. Non-pilot package durations/stages are never guessed.
+ * itinerary. Advertised package durations are sourced from TERENSAI
+ * price screenshots (15.10.2026); their exact stage timings remain unapproved.
  * Custom programme is created from explicitly entered stages.
  */
 enum class TemplateStatus { PILOT, PREVIEW, NEEDS_VERIFICATION, CUSTOM }
@@ -24,20 +25,20 @@ object ProgrammeCatalog {
       "Пилотный банный маршрут","3 коллективных парения · тестовый план",TemplateStatus.PILOT
     ),
     ProgrammeSummary(
-      "light","LIGHT","L",null,
-      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+      "light","LIGHT","L",240,
+      "Ознакомительная программа для первого знакомства","Бесконтактный прогрев (экспресс) · индивидуальное парение",TemplateStatus.PREVIEW
     ),
     ProgrammeSummary(
-      "grand","GRAND","G",null,
-      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+      "grand","GRAND","G",240,
+      "Программа для компании 4–20 гостей","2 полноценных коллективных парения · отдых и уборка",TemplateStatus.PREVIEW
     ),
     ProgrammeSummary(
-      "premium","PREMIUM","P",null,
-      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+      "premium","PREMIUM","P",300,
+      "Банная программа с SPA и массажем","1 коллективное · индивидуальные парения · SPA",TemplateStatus.PREVIEW
     ),
     ProgrammeSummary(
-      "supreme","SUPREME","S",null,
-      "Штатная программа TERENSAI","Маршрут и длительности ожидают утверждения",TemplateStatus.PREVIEW
+      "supreme","SUPREME","S",300,
+      "Индивидуальная программа для одного гостя","3 этапа индивидуального парения · 4 вида веников · SPA",TemplateStatus.PREVIEW
     ),
     ProgrammeSummary(
       "custom","Своя программа","+",null,

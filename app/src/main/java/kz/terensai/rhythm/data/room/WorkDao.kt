@@ -17,6 +17,8 @@ interface WorkDao {
     fun attributedStageCount(sessionId:String,stageId:String):Int
     @Query("SELECT * FROM work_entries WHERE id=:id LIMIT 1")
     fun entry(id:String):WorkRow?
+    @Query("SELECT * FROM work_entries WHERE sessionId=:sessionId ORDER BY createdAtMs DESC")
+    fun forSession(sessionId:String):List<WorkRow>
     @Query("SELECT * FROM work_entries WHERE staffId=:staffId ORDER BY createdAtMs DESC")
     fun forMaster(staffId:String):List<WorkRow>
     @Query("SELECT * FROM work_events WHERE workId=:id ORDER BY atMs,rowid")

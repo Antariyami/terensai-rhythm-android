@@ -25,7 +25,9 @@ data class WorkRow(
     val suiteNameSnapshot:String?=null,
     val programmeNameSnapshot:String?=null,
     /** Non-null only for a stage explicitly attributed to this performer. */
-    val sourceStageId:String?=null
+    val sourceStageId:String?=null,
+    /** Optional exact SPA/menu service, with the original generic journal category. */
+    val serviceLabelSnapshot:String?=null
 )
 
 @Entity(tableName="work_events",foreignKeys=[
