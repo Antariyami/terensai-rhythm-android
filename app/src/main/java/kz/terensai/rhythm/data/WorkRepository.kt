@@ -39,14 +39,18 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
     suspend fun create(masterId:String,sessionId:String?,role:String="PM",
         procedure:String="INDIVIDUAL_STEAM",plannedMinutes:Int=45,
         externalPm1Id:String?=null,externalSuite:String?=null,
-        externalProgramme:String?=null):WorkView=withContext(Dispatchers.IO){
+        externalProgramme:String?=null,
+        serviceLabelSnapshot:String?=null,
+        requestId:String=UUID.randomUUID().toString()):WorkView=withContext(Dispatchers.IO){
         require(plannedMinutes in 1..240 && role in setOf("PM","SPA","PM1"))
+        require(requestId.isNotBlank() && (serviceLabelSnapshot==null || serviceLabelSnapshot.length<=120))
         require(procedure in setOf("INDIVIDUAL_STEAM","COLLECTIVE_STEAM","MASSAGE","PEELING","WASHING","OTHER"))
         if(sessionId==null) {
             require(!externalPm1Id.isNullOrBlank()){"Выбери ведущего PM1"}
             require(!externalSuite.isNullOrBlank()){"Укажи сьют"}
         }
         db.withTransaction {
+            dao.entry(requestId)?.let{return@withTransaction projection(it,dao.events(it.id),now())}
             require(db.staff().member(masterId)?.archived==false){"Выбери действующий профиль мастера"}
             if(sessionId!=null)require(db.records().session(sessionId)!=null){"Программа не найдена"}
             val leader = if(sessionId!=null) {
@@ -57,12 +61,13 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 runCatching {ProgramSnapshotCodec.metadata(it.snapshotJson).suite}.getOrNull()
             }
             if(sessionId==null) require(leader!=null && !leader.archived){"PM1 не найден в справочнике"}
-            val row=WorkRow(UUID.randomUUID().toString(),sessionId,masterId,role,procedure,
+            val row=WorkRow(requestId,sessionId,masterId,role,procedure,
                 plannedMinutes*60000L,now(),origin,
                 pm1StaffId=leader?.id,
                 pm1NameSnapshot=leader?.displayName,
                 suiteNameSnapshot=(localSuite ?: externalSuite)?.trim()?.take(48),
-                programmeNameSnapshot=(localSession?.templateTitle ?: externalProgramme)?.trim()?.take(80))
+                programmeNameSnapshot=(localSession?.templateTitle ?: externalProgramme)?.trim()?.take(80),
+                serviceLabelSnapshot=serviceLabelSnapshot?.trim()?.take(120))
             dao.create(row)
             projection(row,emptyList(),now())
         }
@@ -119,6 +124,9 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
     suspend fun get(id:String):WorkView?=withContext(Dispatchers.IO){
         val row=dao.entry(id)?:return@withContext null
         projection(row,dao.events(id),now())
+    }
+    suspend fun sessionWorks(sessionId:String):List<WorkView> = withContext(Dispatchers.IO){
+        dao.forSession(sessionId).map{projection(it,dao.events(it.id),now())}
     }
     suspend fun all(masterId:String):List<WorkView> = withContext(Dispatchers.IO){
         dao.forMaster(masterId).map {projection(it,dao.events(it.id),now())}

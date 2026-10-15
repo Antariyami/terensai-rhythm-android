@@ -39,6 +39,8 @@ fun B22TimelineScreen(
     onCommand:(String,EventKind)->Unit,
     onReopen:(String)->Unit,
     onFinish:()->Unit,
+    extraDurationMs:Long=0L,
+    liveActions:@Composable ()->Unit={},
     backLabel:String="‹ К программам"
 ) {
     var focusVisible by rememberSaveable(saved.id){mutableStateOf(false)}
@@ -59,10 +61,11 @@ fun B22TimelineScreen(
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmSkip by remember { mutableStateOf(false) }
     var confirmReopen by remember { mutableStateOf(false) }
-    val plannedDuration=saved.progress.plannedEndMs-saved.startedAtMs
+    val plannedDuration=saved.progress.plannedEndMs-saved.startedAtMs+extraDurationMs
+    val remaining=(plannedDuration-saved.progress.elapsedWallClockMs).coerceAtLeast(0L)
     val clock=SimpleDateFormat("HH:mm",Locale("ru","RU"))
     val now = Date(saved.startedAtMs + saved.progress.elapsedWallClockMs)
-    val plannedEnd = Date(saved.progress.plannedEndMs)
+    val plannedEnd = Date(saved.progress.plannedEndMs+extraDurationMs)
     val shape=RoundedCornerShape(18.dp)
 
     Box(Modifier.fillMaxSize().background(C.canvas)) {
@@ -97,10 +100,10 @@ fun B22TimelineScreen(
             Text(formatElapsed(saved.progress.elapsedWallClockMs)+" / "+
                 formatElapsed(plannedDuration),
                 color=C.white,fontSize=24.sp,fontWeight=FontWeight.Bold)
-            Text(if(saved.progress.remainingPlannedMs>0)
-                    "До планового завершения ${formatElapsed(saved.progress.remainingPlannedMs)}"
+            Text(if(remaining>0)
+                    "До планового завершения ${formatElapsed(remaining)}"
                  else "Плановое время завершилось",
-                color=if(saved.progress.remainingPlannedMs>0) C.fact else C.overrun,fontSize=13.sp)
+                color=if(remaining>0) C.fact else C.overrun,fontSize=13.sp)
         }
         if(current!=null) {
             StageProgressCard(current)
@@ -140,6 +143,7 @@ fun B22TimelineScreen(
             Text("← Предыдущий этап: ${previous.plan.title}",color=C.amber)
         }
         TimelineCard(progress=saved.progress,stage=current,modifier=Modifier.fillMaxWidth())
+        liveActions()
         if(notice!=null) Text(notice,color=C.bronze,fontSize=13.sp)
         if(finished) ParitmPrimaryButton("Завершить программу",
             onClick={confirmFinish=true},enabled=!pending,modifier=Modifier.fillMaxWidth())

@@ -43,14 +43,15 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
         Text("Незавершённые процедуры · ${ongoing.size}",color=C.cream)
         if(ongoing.isEmpty()) Text("Пока нет незавершённых процедур",color=C.secondary)
         ongoing.forEach { item ->
-            val label=when(item.row.procedureType){
+            val label=workLabel(item.row.procedureType,item.row.serviceLabelSnapshot).ifBlank{"Процедура"}
+            /* val legacyLabel=when(item.row.procedureType){
                 "INDIVIDUAL_STEAM"->"Индивидуальное парение"
                 "COLLECTIVE_STEAM"->"Коллективное парение"
                 "MASSAGE"->"Массаж"
                 "PEELING"->"Пилинг"
                 "WASHING"->"Помывка веником"
                 else->"Другая работа"
-            }
+            } */ 
             val state=when(item.state){"RUNNING"->"ИДЁТ";"PAUSED"->"ПАУЗА";else->"ОЖИДАЕТ"}
             OutlinedButton(onClick={onOpenWork(item.row.id)},
                 modifier=Modifier.fillMaxWidth().heightIn(min=53.dp)){
@@ -145,14 +146,15 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
             }
         }else{
             Text("Моя роль: ${work.row.role}",color=C.cream)
-            Text("Процедура: "+when(work.row.procedureType){
+            Text("Процедура: "+workLabel(work.row.procedureType,work.row.serviceLabelSnapshot),color=C.cream)
+            /* Text("Процедура: "+when(work.row.procedureType){
                 "INDIVIDUAL_STEAM"->"Индивидуальное парение"
                 "COLLECTIVE_STEAM"->"Коллективное парение"
                 "MASSAGE"->"Массаж"
                 "PEELING"->"Пилинг"
                 "WASHING"->"Помывка веником"
                 else->"Другая работа"
-            },color=C.cream)
+            },color=C.cream) */
             if(work.row.pm1NameSnapshot!=null) Text("PM1: ${work.row.pm1NameSnapshot}",color=C.cream)
             if(work.row.suiteNameSnapshot!=null) Text("Сьют: ${work.row.suiteNameSnapshot}",color=C.cream)
             val startedAt=work.events.firstOrNull{it.kind=="START"}?.atMs
@@ -185,3 +187,6 @@ fun B242WorkScreen(sessions:List<SavedSession>,work:WorkView?,pending:Boolean,no
         Spacer(Modifier.height(32.dp))
     }
 }
+
+private fun workLabel(type:String,service:String?):String =
+    service?.takeIf{it.isNotBlank()} ?: kz.terensai.rhythm.data.WorkJournalLabels.procedure(type)

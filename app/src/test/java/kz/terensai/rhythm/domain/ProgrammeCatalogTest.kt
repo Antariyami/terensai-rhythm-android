@@ -13,12 +13,15 @@ class ProgrammeCatalogTest {
       assertNull("retired package must not be displayed: $old",ProgrammeCatalog.get(old))
     }
   }
-  @Test fun onlyPilotCanExecuteBuiltInItineraryAndFourTemplatesHaveUnverifiedTimes() {
+  @Test fun onlyPilotExecutesBuiltInWhileFourCardsShowAdvertisedDurations() {
     val p=ProgrammeCatalog.programmes.associateBy{it.id}
     assertEquals(180,p.getValue("tanysu").durationMinutes)
     assertEquals(TemplateStatus.PILOT,p.getValue("tanysu").status)
+    assertEquals(240,p.getValue("light").durationMinutes)
+    assertEquals(240,p.getValue("grand").durationMinutes)
+    assertEquals(300,p.getValue("premium").durationMinutes)
+    assertEquals(300,p.getValue("supreme").durationMinutes)
     for(id in listOf("light","grand","premium","supreme")){
-      assertNull(p.getValue(id).durationMinutes)
       assertEquals(TemplateStatus.PREVIEW,p.getValue(id).status)
     }
     assertEquals(TemplateStatus.CUSTOM,p.getValue("custom").status)
