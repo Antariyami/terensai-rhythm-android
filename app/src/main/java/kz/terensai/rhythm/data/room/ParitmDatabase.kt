@@ -9,14 +9,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** No destructive migration: future schema upgrades must provide explicit Migration objects. */
 @Database(
-    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class],
-    version = 7,
+    entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class,
+        ChecklistTemplateRow::class, ChecklistRunRow::class],
+    version = 8,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
     abstract fun records(): ParitmDao
     abstract fun staff(): StaffDao
     abstract fun work(): WorkDao
+    abstract fun checklists(): ChecklistDao
 
     companion object {
         /**
@@ -101,6 +103,24 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7,8) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS checklist_templates (
+                    id TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL,
+                    version INTEGER NOT NULL, json TEXT NOT NULL,
+                    updatedAtMs INTEGER NOT NULL)""")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS checklist_runs (
+                    id TEXT NOT NULL PRIMARY KEY, templateId TEXT NOT NULL,
+                    templateVersion INTEGER NOT NULL,
+                    snapshotJson TEXT NOT NULL, checkedJson TEXT NOT NULL,
+                    notesJson TEXT NOT NULL, status TEXT NOT NULL,
+                    startedAtMs INTEGER NOT NULL, updatedAtMs INTEGER NOT NULL,
+                    completedAtMs INTEGER)""")
+                db.execSQL("""CREATE INDEX IF NOT EXISTS
+                    index_checklist_runs_templateId ON checklist_runs(templateId)""")
+            }
+        }
+
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
@@ -108,7 +128,7 @@ abstract class ParitmDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext, ParitmDatabase::class.java,
                     "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7,MIGRATION_7_8).build().also { instance = it }
             }
     }
 }

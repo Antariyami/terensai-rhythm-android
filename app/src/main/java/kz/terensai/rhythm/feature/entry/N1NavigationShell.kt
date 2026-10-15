@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kz.terensai.rhythm.feature.checklists.P22ChecklistScreen
 import kz.terensai.rhythm.feature.session.SuitePicker
 import kz.terensai.rhythm.feature.session.B23ShiftFlow
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
@@ -38,6 +39,7 @@ fun N1NavigationShell(
     var tab by rememberSaveable {mutableStateOf("home")}
     var chosenSuite by rememberSaveable {mutableStateOf("")}
     var mastersInSettings by rememberSaveable {mutableStateOf(false)}
+    var templatesInSettings by rememberSaveable {mutableStateOf(false)}
     var newProgrammeRequested by rememberSaveable {mutableIntStateOf(0)}
     var prepareNewProgramme by rememberSaveable {mutableStateOf(false)}
     var prepareCustomProgramme by rememberSaveable {mutableStateOf(false)}
@@ -53,7 +55,7 @@ fun N1NavigationShell(
         newProgrammeRequested+=1
         tab="shift"
     }
-    BackHandler(enabled=tab!="home" && !mastersInSettings){tab="home"}
+    BackHandler(enabled=tab!="home" && !mastersInSettings && !templatesInSettings){tab="home"}
     LaunchedEffect(tab,newProgrammeRequested) {
         if(tab=="shift"){
             prepareNewProgramme=false
@@ -64,6 +66,8 @@ fun N1NavigationShell(
         Box(Modifier.weight(1f)){
             if(mastersInSettings) {
                 B23ShiftFlow(onBack={mastersInSettings=false},initialMasters=true)
+            } else if(templatesInSettings) {
+                P22ChecklistScreen(onBack={templatesInSettings=false},initialEditor=true)
             } else when(tab){
                 "shift","reports"->{
                     key(tab,newProgrammeRequested){
@@ -117,6 +121,9 @@ fun N1NavigationShell(
                         Text("Порядок: 1 Көркемдік · 2 Өркендеу · 3 Байлық · 4 Амандық · 5 Сәттілік. История предыдущих сессий сохраняется.",
                             color=C.bronze,fontSize=12.sp)
                     }
+                    OutlinedButton(onClick={templatesInSettings=true},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
+                        Text("Шаблоны чек-листов · редактор и JSON",color=C.amber)
+                    }
                     OutlinedButton(onClick={mastersInSettings=true},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
                         Text("Мастера · мой профиль и справочник",color=C.amber)
                     }
@@ -148,7 +155,7 @@ fun N1NavigationShell(
             onShift={tab="shift"},
             onReports={tab="reports"},
             onAnalytics={tab="analytics"},
-            onSettings={mastersInSettings=false;tab="settings"}
+            onSettings={mastersInSettings=false;templatesInSettings=false;tab="settings"}
         )
     }
 }
