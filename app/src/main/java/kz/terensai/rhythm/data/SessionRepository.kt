@@ -14,6 +14,8 @@ import kz.terensai.rhythm.domain.ProgramPlan
 import kz.terensai.rhythm.domain.SessionEvent
 import kz.terensai.rhythm.domain.SessionPlan
 import kz.terensai.rhythm.domain.SessionProgress
+import kz.terensai.rhythm.domain.StageReturnRules
+import kz.terensai.rhythm.domain.StageStatus
 import kz.terensai.rhythm.domain.SessionTransitionRules
 import kz.terensai.rhythm.domain.TimelineEngine
 import java.util.UUID
@@ -105,6 +107,7 @@ class SessionRepository(
         commandId: String = UUID.randomUUID().toString()
     ): SavedSession = withContext(Dispatchers.IO) {
         require(commandId.isNotBlank())
+        require(command != EventKind.REOPEN) { "Для возврата используй reopenPrevious" }
         database.withTransaction {
             val row = dao.session(sessionId) ?: error("Session not found")
             check(row.finishedAtMs == null && row.legacyJson == null) { "Session is already closed" }
@@ -125,6 +128,54 @@ class SessionRepository(
             )
             check(inserted != -1L) { "An event ID is already in use" }
             check(dao.touchSession(sessionId, now) == 1)
+            read(dao.session(sessionId)!!)
+        }
+    }
+
+    /**
+     * Append-only correction of an accidental stage COMPLETE/SKIP.
+     * A stage already attributed in S13 is temporarily blocked to prevent
+     * WorkEntry/report divergence; a future change will resync it with audit.
+     */
+    suspend fun reopenPrevious(
+        sessionId: String,
+        expectedStageId: String,
+        commandId: String = UUID.randomUUID().toString()
+    ): SavedSession = withContext(Dispatchers.IO) {
+        require(commandId.isNotBlank() && expectedStageId.isNotBlank())
+        database.withTransaction {
+            val row = dao.session(sessionId) ?: error("Программа не найдена")
+            check(row.finishedAtMs == null && row.legacyJson == null) {
+                "Программа уже завершена"
+            }
+            val events = dao.events(sessionId)
+            if (events.any { it.id == commandId }) return@withTransaction read(row, events)
+            val state = read(row, events)
+            val previous = StageReturnRules.target(state.progress)
+                ?: error("Нет завершённого предыдущего этапа")
+            check(previous.plan.id == expectedStageId) {
+                "Этап изменился. Обнови экран перед возвратом."
+            }
+            check(SessionTransitionRules.allowed(previous.status, EventKind.REOPEN))
+            check(database.work().attributedStageCount(sessionId, expectedStageId) == 0) {
+                "Этап уже учтён в личном журнале. Возврат заблокирован для защиты отчёта."
+            }
+            val at = maxOf(clock.epochMillis(), row.startedAtMs,
+                (events.maxOfOrNull { it.atMs } ?: 0L) + 1L)
+            state.progress.stages.filter {
+                it.plan.id != expectedStageId &&
+                    it.plan.track == previous.plan.track &&
+                    it.status == StageStatus.RUNNING
+            }.forEach { other ->
+                check(dao.appendEvent(EventRow(
+                    UUID.randomUUID().toString(), sessionId, other.plan.id,
+                    EventKind.PAUSE.name, at
+                )) != -1L)
+            }
+            check(dao.appendEvent(EventRow(
+                commandId, sessionId, expectedStageId, EventKind.REOPEN.name, at
+            )) != -1L)
+            check(dao.touchSession(sessionId, at) == 1)
             read(dao.session(sessionId)!!)
         }
     }

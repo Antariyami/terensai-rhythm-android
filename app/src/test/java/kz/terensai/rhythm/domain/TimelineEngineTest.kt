@@ -90,6 +90,26 @@ class TimelineEngineTest {
         c.now = 121_000
         assertEquals(110_000L, engine.project(session(),events).stages[0].elapsedMs)
     }
+    @Test fun reopeningKeepsPriorTimeButExcludesGap() {
+        val progress = TimelineEngine(TestClock(61_000)).project(session(), listOf(
+            e("a","heat",EventKind.START,11_000),
+            e("b","heat",EventKind.COMPLETE,21_000),
+            e("c","heat",EventKind.REOPEN,41_000),
+            e("d","heat",EventKind.COMPLETE,51_000)
+        )).stages.first()
+        assertEquals(StageStatus.COMPLETED,progress.status)
+        assertEquals(20_000L,progress.elapsedMs)
+        assertEquals(51_000L,progress.actualFinishedAtMs)
+    }
+    @Test fun previouslySkippedStageStartsOnReturn() {
+        val progress = TimelineEngine(TestClock(61_000)).project(session(), listOf(
+            e("a","heat",EventKind.SKIP,11_000),
+            e("b","heat",EventKind.REOPEN,41_000),
+            e("c","heat",EventKind.COMPLETE,51_000)
+        )).stages.first()
+        assertEquals(10_000L,progress.elapsedMs)
+        assertEquals(41_000L,progress.actualStartedAtMs)
+    }
     @Test fun duplicateStageIdsAreRejected() {
         try {
             ProgramPlan("bad","Bad", 10_000, listOf(

@@ -12,6 +12,7 @@ object SessionTransitionRules {
         EventKind.COMPLETE -> status == StageStatus.RUNNING || status == StageStatus.PAUSED
         EventKind.SKIP -> status == StageStatus.NOT_STARTED ||
             status == StageStatus.RUNNING || status == StageStatus.PAUSED
+        EventKind.REOPEN -> status == StageStatus.COMPLETED || status == StageStatus.SKIPPED
     }
 
     fun remaining(planMs: Long, elapsedMs: Long): Long {
