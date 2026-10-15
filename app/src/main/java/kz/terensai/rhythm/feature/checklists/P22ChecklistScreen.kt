@@ -29,6 +29,9 @@ import kz.terensai.rhythm.checklists.*
 import kz.terensai.rhythm.data.room.ChecklistRunRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * P2.2 offline checklist workflow. No dependency on SessionRepository/WorkRepository.
@@ -40,6 +43,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
     val repo=remember(context){ChecklistRepository(ParitmDatabase.get(context))}
     val scope=rememberCoroutineScope()
     var templates by remember{mutableStateOf<List<ChecklistTemplate>>(emptyList())}
+    var history by remember{mutableStateOf<List<ChecklistRunRow>>(emptyList())}
     var selectedId by rememberSaveable{mutableStateOf<String?>(null)}
     var editing by rememberSaveable{mutableStateOf(initialEditor)}
     var editor by remember{mutableStateOf<ChecklistTemplate?>(null)}
@@ -61,6 +65,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             try {
                 repo.ensureDefaults()
                 templates=repo.templates()
+                history=repo.allRuns()
                 if(selectedId!=null && editor==null && run==null && !editing) {
                     run=repo.activeRun(selectedId!!)
                 }
@@ -90,6 +95,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                 run=if(forceNew) repo.newRun(id) else
                     (repo.activeRun(id)?:repo.newRun(id))
                 page=0
+                history=repo.allRuns()
                 notice=null
                 summary=""
             }catch(e:Exception){notice="Ошибка открытия: ${e.message}"}
@@ -113,6 +119,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
         scope.launch {
             try{
                 run=repo.complete(id,decision,summary)
+                history=repo.allRuns()
                 notice="Итог сохранён в базе. Для следующей смены начни новую проверку."
             }catch(e:Exception){notice="Ошибка завершения: ${e.message}"}
             finally{busy=false;confirmDecision=null}
@@ -122,7 +129,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
         when {
             editDialog!=null->editDialog=null
             editor!=null->editor=null
-            run!=null->run=null
+            run!=null->{run=null;load()}
             else->onBack()
         }
     }
@@ -233,8 +240,12 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             val block=snapshot.blocks[page.coerceIn(snapshot.blocks.indices)]
             val progress=checked.size
             Text(snapshot.title,color=C.white,fontWeight=FontWeight.Bold,fontSize=26.sp)
+            if(snapshot.type=="BAG")Text("Дорога — 10 минут · сбор — 15 минут · резерв — 15 минут. Начни сбор за 30 минут до выхода.",color=C.secondary,fontSize=13.sp)
             Text("Проверено ${progress} из ${snapshot.totalItems} · Блок ${page+1} из ${snapshot.blocks.size}",
                 color=C.amber)
+            if(snapshot.type=="BAG" && progress==snapshot.totalItems) {
+                Text("✅ СУМКА СОБРАНА! 🎒 Всё готово к смене.",color=C.fact,fontSize=17.sp)
+            }
             Text(if(active.status=="IN_PROGRESS")"Проверка продолжается" else
                 "Завершено: ${statusLabel(active.status)}",color=C.secondary)
             Text(block.title,color=C.cream,fontSize=20.sp,fontWeight=FontWeight.SemiBold)
@@ -275,6 +286,21 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                 }
                 if(page==snapshot.blocks.lastIndex){
                     Text("ИТОГ ПРОВЕРКИ",color=C.bronze,fontSize=17.sp)
+                    if(snapshot.type=="RECEPTION") {
+                        var pm1Name by remember(active.id){mutableStateOf(notes["pm1"]?:"")}
+                        LaunchedEffect(pm1Name,active.id){
+                            kotlinx.coroutines.delay(500L)
+                            if(pm1Name!=(notes["pm1"]?:"")) {
+                                try {
+                                    val saved=repo.saveNote(active.id,"pm1",pm1Name)
+                                    if(run?.id==active.id)run=saved
+                                }catch(e:Exception){notice="Ошибка сохранения PM1: ${e.message}"}
+                            }
+                        }
+                        OutlinedTextField(value=pm1Name,onValueChange={pm1Name=it.take(120)},
+                            label={Text("PM1 — кто принял смену")},
+                            modifier=Modifier.fillMaxWidth())
+                    }
                     OutlinedTextField(value=summary,onValueChange={summary=it.take(2000)},
                         label={Text("Замечания / кому передано")},
                         modifier=Modifier.fillMaxWidth(),minLines=2)
@@ -326,6 +352,18 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                     },modifier=Modifier.fillMaxWidth()){
                         Text(if(editing)"Редактировать шаблон →" else "Пройти / продолжить →",
                             color=C.amber)
+                    }
+                    history.filter{it.templateId==template.id}.take(3).forEach{previous->
+                        OutlinedButton(onClick={
+                            selectedId=template.id
+                            run=previous;page=0
+                            summary=ChecklistJson.decodeNotes(previous.notesJson)["summary"]?:""
+                            notice=null
+                        },modifier=Modifier.fillMaxWidth()) {
+                            val date=SimpleDateFormat("dd.MM HH:mm",Locale("ru","RU"))
+                                .format(Date(previous.startedAtMs))
+                            Text("История $date · ${statusLabel(previous.status)}",color=C.bronze)
+                        }
                     }
                     if(!editing){
                         OutlinedButton(onClick={start(template.id,true)},
