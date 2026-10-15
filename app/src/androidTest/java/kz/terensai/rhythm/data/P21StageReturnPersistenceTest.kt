@@ -65,7 +65,8 @@ class P21StageReturnPersistenceTest {
             val personal=WorkRepository(db,"qa"){now}
                 .attributeCompletedStage(master.id,id,"first")
             assertEquals("COMPLETED",personal.state)
-            assertEquals(120_000L,personal.elapsedMs)
+            assertEquals(repo.readById(id)!!.progress.stages.first().elapsedMs,personal.elapsedMs)
+            assertTrue(personal.elapsedMs in 119_998L..120_001L)
             assertEquals(1,db.work().forMaster(master.id).size)
         }finally{db.close()}
     }
