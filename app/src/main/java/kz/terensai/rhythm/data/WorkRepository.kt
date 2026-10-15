@@ -20,12 +20,12 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 "REOPEN" -> {if(state=="COMPLETED" || state=="READY"){
                     since=e.atMs;state="RUNNING"
                 }}
-                "PAUSE","COMPLETE" -> {
+                "PAUSE","COMPLETE","SKIP" -> {
                     if(state=="RUNNING"){
                         elapsed+=(e.atMs-(since?:e.atMs)).coerceAtLeast(0L)
                         since=null
                         state=if(e.kind=="PAUSE")"PAUSED" else "COMPLETED"
-                    }else if(e.kind=="COMPLETE"&&state=="PAUSED")state="COMPLETED"
+                    }else if((e.kind=="COMPLETE"||e.kind=="SKIP")&&state=="PAUSED")state="COMPLETED"
                 }
             }
         }
@@ -87,7 +87,7 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
             val type=ProgrammeStageCandidates.classify(stage.title)
                 ?:error("Учесть можно только индивидуальное или коллективное парение")
             val events=db.records().events(sessionId).filter{it.stageId==stageId}
-            check(events.any{it.kind=="START"} && events.lastOrNull()?.kind=="COMPLETE"){
+            check(events.any{it.kind=="START"||it.kind=="REOPEN"} && events.lastOrNull()?.kind=="COMPLETE"){
                 "Этап ещё не завершён"
             }
             val leader=db.staff().activeLeader(sessionId)?.let{db.staff().member(it.staffId)}
@@ -97,7 +97,7 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 sessionId=sessionId,staffId=masterId,
                 role=if(leader?.id==masterId)"PM1" else "PM",
                 procedureType=type,plannedMs=stage.plannedDurationMs,
-                createdAtMs=events.first{it.kind=="START"}.atMs,
+                createdAtMs=events.first{it.kind=="START"||it.kind=="REOPEN"}.atMs,
                 originClientId=origin,pm1StaffId=leader?.id,
                 pm1NameSnapshot=leader?.displayName,
                 suiteNameSnapshot=suite,
@@ -105,7 +105,7 @@ class WorkRepository(private val db:ParitmDatabase,private val origin:String,
                 sourceStageId=stageId
             )
             dao.create(row)
-            events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE","REOPEN")}.forEach{ event->
+            events.filter{it.kind in setOf("START","PAUSE","RESUME","COMPLETE","SKIP","REOPEN")}.forEach{ event->
                 check(dao.append(WorkEventRow(
                     UUID.randomUUID().toString(),row.id,event.kind,event.atMs
                 ))!=-1L)

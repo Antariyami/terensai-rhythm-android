@@ -44,6 +44,31 @@ class P21StageReturnPersistenceTest {
             assertEquals(1,db.records().events(id).count{it.kind=="REOPEN"})
         } finally { db.close() }
     }
+    @Test fun skippedRunningStageReturnExcludesInactiveGapInJournal()=runBlocking{
+        val ctx=ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db=Room.inMemoryDatabaseBuilder(ctx,ParitmDatabase::class.java)
+            .allowMainThreadQueries().build()
+        var now=1_800_000_000_000L
+        try {
+            val staff=StaffRepository(db,"qa"){now}
+            val master=staff.create("Тестовый мастер",asMine=true)
+            val repo=SessionRepository(db,Clock{now},"qa")
+            val id=repo.start(plan()).id
+            staff.appointPm1(id,master.id)
+            repo.perform(id,"first",EventKind.START)
+            now+=60_000L
+            repo.perform(id,"first",EventKind.SKIP)
+            now+=600_000L // The gap must not be counted as personal work.
+            repo.reopenPrevious(id,"first")
+            now+=60_000L
+            repo.perform(id,"first",EventKind.COMPLETE)
+            val personal=WorkRepository(db,"qa"){now}
+                .attributeCompletedStage(master.id,id,"first")
+            assertEquals("COMPLETED",personal.state)
+            assertEquals(120_000L,personal.elapsedMs)
+            assertEquals(1,db.work().forMaster(master.id).size)
+        }finally{db.close()}
+    }
     @Test fun stageAlreadyAttributedIsProtected()=runBlocking{
         val ctx=ApplicationProvider.getApplicationContext<android.content.Context>()
         val db=Room.inMemoryDatabaseBuilder(ctx,ParitmDatabase::class.java)
