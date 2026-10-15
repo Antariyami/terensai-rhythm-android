@@ -127,10 +127,13 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
     }
     fun exit() {
         when {
-            editDialog!=null->editDialog=null
-            editor!=null->editor=null
-            run!=null->{run=null;load()}
-            else->onBack()
+            editDialog!=null -> editDialog=null
+            importPreview!=null -> importPreview=null
+            confirmDecision!=null -> confirmDecision=null
+            editor!=null -> editor=null
+            run!=null && page>0 -> page--
+            run!=null -> {run=null;page=0;load()}
+            else -> onBack()
         }
     }
     BackHandler {exit()}

@@ -22,6 +22,7 @@ import kz.terensai.rhythm.R
 import kz.terensai.rhythm.feature.entry.ParitmAtmosphere
 import kz.terensai.rhythm.data.SavedSession
 import kz.terensai.rhythm.domain.EventKind
+import kz.terensai.rhythm.domain.StageReturnRules
 import kz.terensai.rhythm.domain.StageStatus
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import kz.terensai.rhythm.ui.theme.ParitmPrimaryButton
@@ -36,6 +37,7 @@ fun B22TimelineScreen(
     pending:Boolean,
     onBack:()->Unit,
     onCommand:(String,EventKind)->Unit,
+    onReopen:(String)->Unit,
     onFinish:()->Unit,
     backLabel:String="‹ К программам"
 ) {
@@ -51,10 +53,12 @@ fun B22TimelineScreen(
     val current=all.firstOrNull{
         it.status==StageStatus.RUNNING || it.status==StageStatus.PAUSED
     } ?: all.firstOrNull { it.status==StageStatus.NOT_STARTED }
+    val previous=StageReturnRules.target(saved.progress)
     val finished=all.all { it.status==StageStatus.COMPLETED ||
         it.status==StageStatus.SKIPPED }
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmSkip by remember { mutableStateOf(false) }
+    var confirmReopen by remember { mutableStateOf(false) }
     val plannedDuration=saved.progress.plannedEndMs-saved.startedAtMs
     val clock=SimpleDateFormat("HH:mm",Locale("ru","RU"))
     val now = Date(saved.startedAtMs + saved.progress.elapsedWallClockMs)
@@ -131,6 +135,10 @@ fun B22TimelineScreen(
                 Text("Пропустить этап",color=C.bronze)
             }
         }
+        if(previous!=null) OutlinedButton(onClick={confirmReopen=true},
+            enabled=!pending,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) {
+            Text("← Предыдущий этап: ${previous.plan.title}",color=C.amber)
+        }
         TimelineCard(progress=saved.progress,stage=current,modifier=Modifier.fillMaxWidth())
         if(notice!=null) Text(notice,color=C.bronze,fontSize=13.sp)
         if(finished) ParitmPrimaryButton("Завершить программу",
@@ -140,6 +148,18 @@ fun B22TimelineScreen(
         Spacer(Modifier.height(24.dp))
     }
 
+    if(confirmReopen && previous!=null) AlertDialog(
+        onDismissRequest={confirmReopen=false},containerColor=C.panel,
+        title={Text("Вернуться к предыдущему этапу?",color=C.white)},
+        text={Text("«${previous.plan.title}» продолжится с накопленного времени. " +
+            "Идущий этап той же дорожки будет поставлен на паузу. " +
+            "Журнал событий сохранится.",color=C.secondary)},
+        confirmButton={TextButton(enabled=!pending,onClick={
+            confirmReopen=false
+            onReopen(previous.plan.id)
+        }){Text("Вернуться",color=C.amber)}},
+        dismissButton={TextButton(onClick={confirmReopen=false}){Text("Отмена",color=C.white)}}
+    )
     if(confirmSkip && current!=null) AlertDialog(
         onDismissRequest={confirmSkip=false},containerColor=C.panel,
         title={Text("Пропустить этап?",color=C.white)},
