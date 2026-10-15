@@ -61,6 +61,9 @@ class ChecklistRepository(
     suspend fun latestRun(templateId:String):ChecklistRunRow?=withContext(Dispatchers.IO){
         dao.latest(templateId)
     }
+    suspend fun allRuns():List<ChecklistRunRow> = withContext(Dispatchers.IO){
+        dao.allRuns()
+    }
     suspend fun run(id:String):ChecklistRunRow?=withContext(Dispatchers.IO){
         dao.run(id)
     }
