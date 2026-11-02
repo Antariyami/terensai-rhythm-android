@@ -22,6 +22,15 @@ class ChecklistCatalogTest {
         assertEquals("шт.",bag.blocks.first().items.first().unit)
         assertNull(bag.blocks[1].items.first().quantity)
     }
+    @Test fun dutyTemplateHasExactlyTenOwnerProvidedTasks(){
+        val duty=ChecklistCatalog.duty()
+        assertEquals("DUTY",duty.type)
+        assertEquals(listOf(2,2,4,2),duty.blocks.map{it.items.size})
+        assertEquals(10,duty.totalItems)
+        assertTrue(duty.blocks[1].items[0].title.contains("№1, №3, №4"))
+        assertTrue(duty.blocks[1].items[1].title.contains("№2 и №5"))
+        assertTrue(duty.blocks.last().items.last().title.contains("готовности сьютов"))
+    }
     @Test fun movingAndEditingBlocksKeepsIdsStable() {
         val original=ChecklistCatalog.reception()
         val swapped=ChecklistEditing.moveBlock(original,0,1)

@@ -20,6 +20,8 @@ interface ChecklistDao {
     fun run(id:String):ChecklistRunRow?
     @Query("SELECT * FROM checklist_runs WHERE templateId=:id ORDER BY startedAtMs DESC,id DESC LIMIT 1")
     fun latest(id:String):ChecklistRunRow?
+    @Query("SELECT * FROM checklist_runs WHERE templateId=:id AND staffIdSnapshot=:staffId AND status='IN_PROGRESS' ORDER BY startedAtMs DESC,id DESC LIMIT 1")
+    fun activeForStaff(id:String,staffId:String):ChecklistRunRow?
     @Query("SELECT * FROM checklist_runs WHERE templateId=:id AND status='IN_PROGRESS' ORDER BY startedAtMs DESC,id DESC LIMIT 1")
     fun active(id:String):ChecklistRunRow?
     @Insert(onConflict=OnConflictStrategy.ABORT)

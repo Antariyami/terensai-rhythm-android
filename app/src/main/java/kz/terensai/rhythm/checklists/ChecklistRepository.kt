@@ -7,6 +7,10 @@ import kz.terensai.rhythm.data.room.ParitmDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Templates are editable; each run is anchored to the full immutable version
@@ -58,6 +62,8 @@ class ChecklistRepository(
     suspend fun activeRun(templateId:String):ChecklistRunRow?=withContext(Dispatchers.IO){
         dao.active(templateId)
     }
+    suspend fun activeForStaff(templateId:String,staffId:String):ChecklistRunRow?=
+        withContext(Dispatchers.IO){dao.activeForStaff(templateId,staffId)}
     suspend fun latestRun(templateId:String):ChecklistRunRow?=withContext(Dispatchers.IO){
         dao.latest(templateId)
     }
@@ -67,13 +73,23 @@ class ChecklistRepository(
     suspend fun run(id:String):ChecklistRunRow?=withContext(Dispatchers.IO){
         dao.run(id)
     }
-    suspend fun newRun(templateId:String):ChecklistRunRow=withContext(Dispatchers.IO){
+    suspend fun newRun(templateId:String,staffId:String?=null):ChecklistRunRow=
+        withContext(Dispatchers.IO){
         db.withTransaction {
             val template=dao.template(templateId)?:error("Шаблон не найден")
+            val model=ChecklistJson.decode(template.json)
+            val staff=if(model.type=="DUTY"){
+                require(!staffId.isNullOrBlank()){"Выбери профиль дежурного"}
+                db.staff().member(staffId)?.takeUnless{it.archived}
+                    ?:error("Профиль дежурного не найден")
+            }else null
             val current=now().coerceAtLeast(1L)
+            val date=if(staff!=null) SimpleDateFormat("yyyy-MM-dd",Locale.ROOT)
+                .apply{timeZone=TimeZone.getTimeZone("Asia/Almaty")}
+                .format(Date(current)) else null
             val run=ChecklistRunRow(UUID.randomUUID().toString(),templateId,
                 template.version,template.json,"[]","{}","IN_PROGRESS",
-                current,current,null)
+                current,current,null,staff?.id,staff?.displayName,date)
             dao.createRun(run)
             run
         }
@@ -122,9 +138,12 @@ class ChecklistRepository(
                 val snapshot=ChecklistJson.decode(run.snapshotJson)
                 val checked=ChecklistJson.decodeAnswers(run.checkedJson)
                 check(decision!="DONE" || snapshot.type!="RECEPTION"){"Приёмка требует итогового решения"}
-                check(decision=="DONE" || snapshot.type=="RECEPTION"){"Решения PM1 только для приёмки"}
+                check(decision=="DONE" || snapshot.type in setOf("RECEPTION","DUTY")){"Решение недоступно для этого списка"}
                 if(decision in setOf("READY","DONE"))check(checked.size==snapshot.totalItems) {
                     "Для статуса «Готово» отметь все пункты"
+                }
+                if(snapshot.type=="DUTY")check(decision in setOf("DONE","NOTES")){
+                    "Дежурство: выбери завершение или сохранение с замечаниями"
                 }
                 if(decision=="CRITICAL")require(summary.trim().length>=5) {
                     "Запиши критические замечания и кому передано"

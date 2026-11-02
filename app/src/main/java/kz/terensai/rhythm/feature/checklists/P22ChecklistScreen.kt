@@ -1,6 +1,12 @@
 package kz.terensai.rhythm.feature.checklists
 
 import android.net.Uri
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,6 +34,8 @@ import kotlinx.coroutines.withContext
 import kz.terensai.rhythm.checklists.*
 import kz.terensai.rhythm.data.room.ChecklistRunRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
+import kz.terensai.rhythm.data.room.StaffRow
+import kz.terensai.rhythm.data.StaffRepository
 import kz.terensai.rhythm.ui.theme.ParitmColors as C
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,9 +49,14 @@ import java.util.Locale
 fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
     val context=LocalContext.current
     val repo=remember(context){ChecklistRepository(ParitmDatabase.get(context))}
+    val staffRepo=remember(context){StaffRepository(ParitmDatabase.get(context))}
     val scope=rememberCoroutineScope()
     var templates by remember{mutableStateOf<List<ChecklistTemplate>>(emptyList())}
     var history by remember{mutableStateOf<List<ChecklistRunRow>>(emptyList())}
+    var dutyMasters by remember{mutableStateOf<List<StaffRow>>(emptyList())}
+    var dutyStaffId by rememberSaveable{mutableStateOf<String?>(null)}
+    var masterMenu by remember{mutableStateOf(false)}
+    var confirmNewDuty by remember{mutableStateOf<String?>(null)}
     var selectedId by rememberSaveable{mutableStateOf<String?>(null)}
     var editing by rememberSaveable{mutableStateOf(initialEditor)}
     var editor by remember{mutableStateOf<ChecklistTemplate?>(null)}
@@ -66,8 +79,15 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                 repo.ensureDefaults()
                 templates=repo.templates()
                 history=repo.allRuns()
+                dutyMasters=staffRepo.all()
+                val current=staffRepo.mine()
+                if(dutyStaffId==null)dutyStaffId=current?.id
                 if(selectedId!=null && editor==null && run==null && !editing) {
-                    run=repo.activeRun(selectedId!!)
+                    val currentType=templates.firstOrNull{it.id==selectedId}?.type
+                    run=if(currentType=="DUTY" && dutyStaffId!=null)
+                        repo.activeForStaff(selectedId!!,dutyStaffId!!)
+                    else if(currentType=="DUTY") null
+                    else repo.activeRun(selectedId!!)
                 }
             }catch(e:Exception){notice="Ошибка загрузки: ${e.message}"}
         }
@@ -91,13 +111,19 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
         busy=true
         scope.launch {
             try {
+                val isDuty=templates.firstOrNull{it.id==id}?.type=="DUTY"
+                val staffId=if(isDuty)dutyStaffId else null
+                if(isDuty && staffId==null)error("Выбери профиль дежурного в Настройках")
+                val existing=if(isDuty) repo.activeForStaff(id,staffId!!)
+                    else repo.activeRun(id)
+                val next=if(forceNew)repo.newRun(id,staffId)
+                    else(existing?:repo.newRun(id,staffId))
                 selectedId=id
-                run=if(forceNew) repo.newRun(id) else
-                    (repo.activeRun(id)?:repo.newRun(id))
+                run=next
                 page=0
                 history=repo.allRuns()
                 notice=null
-                summary=""
+                summary=ChecklistJson.decodeNotes(next.notesJson)["summary"]?:""
             }catch(e:Exception){notice="Ошибка открытия: ${e.message}"}
             finally{busy=false}
         }
@@ -130,6 +156,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             editDialog!=null -> editDialog=null
             importPreview!=null -> importPreview=null
             confirmDecision!=null -> confirmDecision=null
+            confirmNewDuty!=null -> confirmNewDuty=null
             editor!=null -> editor=null
             run!=null && page>0 -> page--
             run!=null -> {run=null;page=0;load()}
@@ -243,6 +270,12 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             val block=snapshot.blocks[page.coerceIn(snapshot.blocks.indices)]
             val progress=checked.size
             Text(snapshot.title,color=C.white,fontWeight=FontWeight.Bold,fontSize=26.sp)
+            if(snapshot.type=="DUTY") {
+                Text("Дежурный: ${active.staffNameSnapshot?:"Не указан"} · ${active.dutyDate?:"Без даты"}",
+                    color=C.cream,fontSize=14.sp)
+                Text("Первичный список обязанностей: детали проверки печей уточняются с руководителем.",
+                    color=C.secondary,fontSize=12.sp)
+            }
             if(snapshot.type=="BAG")Text("Дорога — 10 минут · сбор — 15 минут · резерв — 15 минут. Начни сбор за 30 минут до выхода.",color=C.secondary,fontSize=13.sp)
             Text("Проверено ${progress} из ${snapshot.totalItems} · Блок ${page+1} из ${snapshot.blocks.size}",
                 color=C.amber)
@@ -275,7 +308,15 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                         }catch(e:Exception){notice="Ошибка сохранения заметки: ${e.message}"}
                     }
                 }
-                OutlinedTextField(value=note,onValueChange={note=it.take(2000)},
+                OutlinedTextField(value=note,onValueChange={value->
+                        note=value.take(2000)
+                        if(snapshot.type=="DUTY")scope.launch {
+                            try{
+                                val updated=repo.saveNote(active.id,key,note)
+                                if(run?.id==active.id)run=updated
+                            }catch(e:Exception){notice="Ошибка сохранения заметки: ${e.message}"}
+                        }
+                    },
                     label={Text(if(snapshot.type=="RECEPTION" && block.id=="pm1-1")
                         "Важно учесть" else if(snapshot.type=="RECEPTION" && block.id=="pm1-2")
                         "Замечания / тепловое ядро" else "Заметки по блоку")},
@@ -304,7 +345,15 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                             label={Text("PM1 — кто принял смену")},
                             modifier=Modifier.fillMaxWidth())
                     }
-                    OutlinedTextField(value=summary,onValueChange={summary=it.take(2000)},
+                    OutlinedTextField(value=summary,onValueChange={value->
+                        summary=value.take(2000)
+                        if(snapshot.type=="DUTY")scope.launch{
+                            try{
+                                val saved=repo.saveNote(active.id,"summary",summary)
+                                if(run?.id==active.id)run=saved
+                            }catch(e:Exception){notice="Ошибка сохранения итога: ${e.message}"}
+                        }
+                    },
                         label={Text("Замечания / кому передано")},
                         modifier=Modifier.fillMaxWidth(),minLines=2)
                     if(snapshot.type=="RECEPTION"){
@@ -321,6 +370,12 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                             Text("Критические замечания — устранить",color=C.overrun)
                         }
                     } else {
+                        if(snapshot.type=="DUTY"){
+                            OutlinedButton(onClick={confirmDecision="NOTES"},
+                                modifier=Modifier.fillMaxWidth()){
+                                Text("Завершить с замечаниями / не все пункты",color=C.amber)
+                            }
+                        }
                         OutlinedButton(onClick={confirmDecision="DONE"},
                             modifier=Modifier.fillMaxWidth()){
                             Text("✓ Завершить проверку",color=C.fact)
@@ -331,8 +386,33 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                 Text("История сохранена. Можно открыть новый экземпляр списка без изменения этого отчёта.",
                     color=C.secondary)
             }
-            OutlinedButton(onClick={start(snapshot.id,true)},modifier=Modifier.fillMaxWidth()){
-                Text("+ Новая проверка (галочки сбросятся)",color=C.amber)
+            if(snapshot.type=="DUTY"){
+                OutlinedButton(onClick={
+                    val report=DutyReport.render(active,if(active.status=="IN_PROGRESS") summary else null)
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                        .setPrimaryClip(ClipData.newPlainText("ПАРИТМ · Дежурство",report))
+                    notice="Отчёт скопирован. Вставь его в WhatsApp или Telegram."
+                },modifier=Modifier.fillMaxWidth()){
+                    Text("Скопировать отчёт",color=C.amber)
+                }
+                OutlinedButton(onClick={
+                    val report=DutyReport.render(active,if(active.status=="IN_PROGRESS") summary else null)
+                    val intent=Intent(Intent.ACTION_SEND).apply{
+                        type="text/plain"
+                        putExtra(Intent.EXTRA_TEXT,report)
+                    }
+                    context.startActivity(Intent.createChooser(intent,"Отправить отчёт дежурного"))
+                },modifier=Modifier.fillMaxWidth()){
+                    Text("Поделиться отчётом",color=C.bronze)
+                }
+            }
+            OutlinedButton(onClick={
+                if(snapshot.type=="DUTY" && active.status=="IN_PROGRESS")
+                    confirmNewDuty=snapshot.id
+                else start(snapshot.id,true)
+            },modifier=Modifier.fillMaxWidth()){
+                Text(if(snapshot.type=="DUTY")"+ Новое дежурство · 0 отметок"
+                    else "+ Новая проверка (галочки сбросятся)",color=C.amber)
             }
         } else {
             Text(if(editing)"Шаблоны чек-листов" else "Чек-листы моей смены",
@@ -356,7 +436,8 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                         Text(if(editing)"Редактировать шаблон →" else "Пройти / продолжить →",
                             color=C.amber)
                     }
-                    history.filter{it.templateId==template.id}.take(3).forEach{previous->
+                    history.filter{it.templateId==template.id}
+                        .take(if(template.type=="DUTY")100 else 3).forEach{previous->
                         OutlinedButton(onClick={
                             selectedId=template.id
                             run=previous;page=0
@@ -365,13 +446,38 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                         },modifier=Modifier.fillMaxWidth()) {
                             val date=SimpleDateFormat("dd.MM HH:mm",Locale("ru","RU"))
                                 .format(Date(previous.startedAtMs))
-                            Text("История $date · ${statusLabel(previous.status)}",color=C.bronze)
+                            Text(if(template.type=="DUTY")
+                                "История ${previous.dutyDate?:date} · ${previous.staffNameSnapshot?:"Без мастера"} · "+
+                                    "${ChecklistJson.decodeAnswers(previous.checkedJson).size}/"+
+                                    "${ChecklistJson.decode(previous.snapshotJson).totalItems}"
+                                else "История $date · ${statusLabel(previous.status)}",
+                                color=C.bronze)
                         }
                     }
                     if(!editing){
-                        OutlinedButton(onClick={start(template.id,true)},
-                            modifier=Modifier.fillMaxWidth()){
+                        OutlinedButton(onClick={
+                            if(template.type=="DUTY")confirmNewDuty=template.id
+                            else start(template.id,true)
+                        },modifier=Modifier.fillMaxWidth()){
                             Text("+ Начать новую проверку",color=C.bronze)
+                        }
+                    }
+                    if(template.type=="DUTY" && !editing){
+                        Text("Дежурный мастер",color=C.secondary,fontSize=13.sp)
+                        Box{
+                            OutlinedButton(onClick={masterMenu=true},
+                                modifier=Modifier.fillMaxWidth()){
+                                Text(dutyMasters.firstOrNull{it.id==dutyStaffId}?.displayName
+                                    ?:"Выбери профиль мастера",color=C.amber)
+                            }
+                            DropdownMenu(expanded=masterMenu,onDismissRequest={masterMenu=false}){
+                                dutyMasters.filter{!it.archived}.forEach{member->
+                                    DropdownMenuItem(text={Text(member.displayName)},onClick={
+                                        dutyStaffId=member.id
+                                        masterMenu=false
+                                    })
+                                }
+                            }
                         }
                     }
                 }
@@ -391,6 +497,19 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
         Spacer(Modifier.height(30.dp))
     }
 
+    if(confirmNewDuty!=null){
+        val templateId=confirmNewDuty!!
+        AlertDialog(
+            onDismissRequest={confirmNewDuty=null},
+            title={Text("Начать новое дежурство?")},
+            text={Text("Создадим новый список с пустыми галочками. Все предыдущие проверки останутся в истории.")},
+            confirmButton={TextButton(onClick={
+                confirmNewDuty=null
+                start(templateId,true)
+            }){Text("Начать с 0",color=C.amber)}},
+            dismissButton={TextButton(onClick={confirmNewDuty=null}){Text("Отмена")}}
+        )
+    }
     if(editDialog!=null && editor!=null){
         val (blockIndex,itemIndex)=editDialog!!
         AlertDialog(
