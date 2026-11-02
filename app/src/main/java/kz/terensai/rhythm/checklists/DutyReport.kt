@@ -36,6 +36,9 @@ object DutyReport {
                 block.items.forEach { item ->
                     appendLine((if(item.id in checked)"☑ " else "☐ ")+item.title)
                 }
+                notes["temperature:"+block.id]?.takeIf{it.isNotBlank()}?.let{
+                    appendLine("Температура при проверке: $it °C")
+                }
                 notes[block.id]?.takeIf{it.isNotBlank()}?.let{
                     appendLine("Замечания: $it")
                 }

@@ -24,14 +24,14 @@ class DutyReportTest {
         val report=DutyReport.render(record)
         assertTrue(report.contains("Тестовый мастер"))
         assertTrue(report.contains("2026-11-02"))
-        assertTrue(report.contains("Проверено: 2 из 10"))
+        assertTrue(report.contains("Проверено: 2 из 49"))
         assertTrue(report.contains("☑ Прибыл к 10:00"))
         assertTrue(report.contains("☐ Передал информацию о готовности сьютов"))
         assertTrue(report.contains("Проверка передана ответственному"))
         assertTrue(report.contains("До передачи проверено частично"))
         val afterEdit=ChecklistEditing.addItem(template,0)
-        assertEquals(11,afterEdit.totalItems)
-        assertEquals(10,ChecklistJson.decode(record.snapshotJson).totalItems)
+        assertEquals(50,afterEdit.totalItems)
+        assertEquals(49,ChecklistJson.decode(record.snapshotJson).totalItems)
         assertEquals(report,DutyReport.render(record))
     }
     @Test fun editorStillRoundTripsDutySchemaAndItemOrder(){

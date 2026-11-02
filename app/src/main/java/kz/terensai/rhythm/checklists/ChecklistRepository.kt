@@ -24,9 +24,18 @@ class ChecklistRepository(
 
     suspend fun ensureDefaults():Unit=withContext(Dispatchers.IO){
         db.withTransaction {
-            ChecklistCatalog.defaults().forEach{
-                dao.seed(ChecklistTemplateRow(it.id,it.type,it.version,
-                    ChecklistJson.encode(it),now()))
+            ChecklistCatalog.defaults().forEach{candidate->
+                val saved=dao.template(candidate.id)
+                if(saved==null){
+                    dao.seed(ChecklistTemplateRow(candidate.id,candidate.type,candidate.version,
+                        ChecklistJson.encode(candidate),now()))
+                }else if(candidate.type=="DUTY" && saved.version==1 &&
+                    saved.json==ChecklistJson.encode(ChecklistCatalog.dutyV1())){
+                    // Upgrade the untouched built-in template only. Previously started
+                    // runs keep their original snapshot; user-edited templates are retained.
+                    dao.putTemplate(ChecklistTemplateRow(candidate.id,candidate.type,
+                        candidate.version,ChecklistJson.encode(candidate),now()))
+                }
             }
         }
     }
@@ -117,7 +126,10 @@ class ChecklistRepository(
             check(run.status=="IN_PROGRESS"){"Проверка уже завершена"}
             val snapshot=ChecklistJson.decode(run.snapshotJson)
             check(key in setOf("summary","important","heat","remarks","pm1") ||
-                snapshot.blocks.any{it.id==key}){"Недопустимое поле заметки"}
+                snapshot.blocks.any{it.id==key} ||
+                (snapshot.type=="DUTY" && key.startsWith("temperature:") &&
+                    snapshot.blocks.any{key=="temperature:"+it.id &&
+                        it.id.startsWith("duty-suite-")})){"Недопустимое поле заметки"}
             val notes=ChecklistJson.decodeNotes(run.notesJson).toMutableMap()
             notes[key]=value
             val updated=run.copy(notesJson=ChecklistJson.encodeNotes(notes),updatedAtMs=now())

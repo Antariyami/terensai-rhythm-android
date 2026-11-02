@@ -12,6 +12,33 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class P26DutyChecklistTest {
+    @Test fun untouchedDutyV1UpgradesWithoutRewritingOldHistory()=runBlocking{
+        val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db=Room.inMemoryDatabaseBuilder(context,ParitmDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try{
+            val staff=StaffRepository(db,"test"){1_800_000_000_000L}
+            val master=staff.create("Мастер A",asMine=true)
+            val old=ChecklistCatalog.dutyV1()
+            db.checklists().putTemplate(kz.terensai.rhythm.data.room.ChecklistTemplateRow(
+                old.id,old.type,old.version,ChecklistJson.encode(old),1_800_000_000_000L))
+            val repo=ChecklistRepository(db){1_800_000_000_500L}
+            val earlier=repo.newRun(old.id,master.id)
+            repo.toggle(earlier.id,old.blocks.first().items.first().id)
+            repo.ensureDefaults()
+            val current=repo.template(old.id)!!
+            assertEquals(2,current.version)
+            assertEquals(49,current.totalItems)
+            val historical=repo.run(earlier.id)!!
+            assertEquals(1,historical.templateVersion)
+            assertEquals(10,ChecklistJson.decode(historical.snapshotJson).totalItems)
+            assertTrue(DutyReport.render(historical).contains("1 из 10"))
+            val newRun=repo.newRun(old.id,master.id)
+            assertEquals(49,ChecklistJson.decode(newRun.snapshotJson).totalItems)
+            assertEquals("[]",newRun.checkedJson)
+        }finally{db.close()}
+    }
+
     @Test fun twoDutyRunsAndMasterSnapshotsSurviveRepositoryRestart()=runBlocking{
         val context=ApplicationProvider.getApplicationContext<android.content.Context>()
         val db=Room.inMemoryDatabaseBuilder(context,ParitmDatabase::class.java)

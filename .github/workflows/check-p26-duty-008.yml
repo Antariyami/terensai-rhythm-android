@@ -1,7 +1,7 @@
 name: PARITM P2.6 + Duty 008 QA
 on:
   push:
-    branches: [feature/p2-6-duty-checklist-008]
+    branches: [feature/p2-6-duty-checklist-008, fix/p26-qa-routing-grand-duty]
   workflow_dispatch:
 permissions:
   contents: read

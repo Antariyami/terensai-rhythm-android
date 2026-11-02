@@ -14,6 +14,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
@@ -285,6 +287,33 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             Text(if(active.status=="IN_PROGRESS")"Проверка продолжается" else
                 "Завершено: ${statusLabel(active.status)}",color=C.secondary)
             Text(block.title,color=C.cream,fontSize=20.sp,fontWeight=FontWeight.SemiBold)
+            if(snapshot.type=="DUTY" && block.id.startsWith("duty-suite-")){
+                val temperatureKey="temperature:"+block.id
+                var temperature by remember(active.id,block.id){
+                    mutableStateOf(notes[temperatureKey].orEmpty())
+                }
+                OutlinedTextField(
+                    value=temperature,
+                    onValueChange={value->
+                        if(active.status=="IN_PROGRESS"){
+                            temperature=value.filter(Char::isDigit).take(3)
+                            val recorded=temperature
+                            scope.launch {
+                                try{
+                                    val saved=repo.saveNote(active.id,temperatureKey,recorded)
+                                    if(run?.id==active.id)run=saved
+                                }catch(e:Exception){
+                                    notice="Ошибка температуры: ${e.message}"
+                                }
+                            }
+                        }
+                    },
+                    enabled=active.status=="IN_PROGRESS",
+                    label={Text("Температура на момент проверки, °C")},
+                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
+                    modifier=Modifier.fillMaxWidth(),singleLine=true
+                )
+            }
             block.items.forEach{item->
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Checkbox(checked=item.id in checked,
