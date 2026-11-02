@@ -3,8 +3,8 @@ package kz.terensai.rhythm.domain
 /**
  * Editable starting schedules, NOT rigid TERENSAI technical norms.
  *
- * Owner clarification 15.10.2026: GRAND's 50-min collective includes
- * a short internal 5–7 minute aperitif break, not an extra 5–7 minutes.
+ * Revised from on-device testing 02.11.2026: each GRAND collective is
+ * 25–30 min including a 5–7 min break, between collective rounds 25–30 min.
  * The guest clock does not include post-visit housekeeping.
  */
 data class StandardRouteDraft(
@@ -48,7 +48,9 @@ object StandardProgrammeRoute {
     const val DEFAULT_EXPLORATORY_MINUTES=15
     const val DEFAULT_REST_MINUTES=20
     const val DEFAULT_INDIVIDUAL_MINUTES=50
-    const val DEFAULT_COLLECTIVE_MINUTES=50
+    const val DEFAULT_COLLECTIVE_MINUTES=50 // premium: editable planning estimate
+    const val DEFAULT_GRAND_COLLECTIVE_MINUTES=30
+    const val DEFAULT_GRAND_BREAK_MINUTES=30
     const val DEFAULT_GASTRONOMY_MINUTES=10
     const val DEFAULT_CLOSING_MINUTES=15
 
@@ -80,7 +82,8 @@ object StandardProgrammeRoute {
                 draft.minuteOverrides[id]?:defaultMinutes)
         }
 
-        add("welcome","Встреча и подготовка гостей",DEFAULT_WELCOME_MINUTES)
+        add("welcome","Встреча и подготовка гостей",
+            if(draft.programmeId=="grand")20 else DEFAULT_WELCOME_MINUTES)
         when(draft.programmeId) {
             "light"->{
                 add("intro-express","Коллективное экспресс-парение · ознакомительный прогрев",
@@ -90,13 +93,13 @@ object StandardProgrammeRoute {
             }
             "grand"->{
                 add("grand-collective-1",
-                    "Коллективное парение №1 · два захода с отдыхом 5–7 мин внутри",
-                    DEFAULT_COLLECTIVE_MINUTES)
+                    "Коллективное парение №1 · 25–30 мин с отдыхом 5–7 мин внутри",
+                    DEFAULT_GRAND_COLLECTIVE_MINUTES)
                 add("grand-break","Уборка и отдых мастеров · отдых гостей",
-                    DEFAULT_REST_MINUTES)
+                    DEFAULT_GRAND_BREAK_MINUTES)
                 add("grand-collective-2",
-                    "Коллективное парение №2 · два захода с отдыхом 5–7 мин внутри",
-                    DEFAULT_COLLECTIVE_MINUTES)
+                    "Коллективное парение №2 · 25–30 мин с отдыхом 5–7 мин внутри",
+                    DEFAULT_GRAND_COLLECTIVE_MINUTES)
             }
             "premium"->{
                 // Changeable planning estimate; not an exact PREMIUM norm.

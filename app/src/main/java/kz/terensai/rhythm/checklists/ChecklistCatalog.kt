@@ -119,11 +119,48 @@ object ChecklistCatalog {
             ))
         )).validated()
     }
-    fun duty():ChecklistTemplate=ChecklistTemplate("duty-shift","DUTY","Дежурство",1,listOf(
+    /** Exact original V1 to identify unedited stock seed before upgrading to V2. */
+    fun dutyV1():ChecklistTemplate=ChecklistTemplate("duty-shift","DUTY","Дежурство",1,listOf(
         block("duty-start","Начало смены",listOf("Прибыл к 10:00, отметил приход в журнале","Проверил бронирования и распоряжения")),
         block("duty-stoves","Проверка печей",listOf("Проверил газовые печи №1, №3, №4","Проверил дровяные печи №2 и №5")),
         block("duty-zones","Парные и инвентарь",listOf("Обошёл все пять парных","Проверил трапы, полки, текстиль и валики","Проверил кадки, лейки, ковши и инвентарь","Проверил порядок в технических помещениях")),
         block("duty-handover","Замечания и передача",listOf("Сообщил о неисправностях и незавершённых работах","Передал информацию о готовности сьютов"))
     )).validated()
+
+    /** Distinct parnaya checks; temperature is stored in notes per bath. */
+    fun duty():ChecklistTemplate {
+        val suites=listOf(
+            Triple(1,"Көркемдік","газовая"),
+            Triple(2,"Өркендеу","дровяная"),
+            Triple(3,"Байлық","газовая"),
+            Triple(4,"Амандық","газовая"),
+            Triple(5,"Сәттілік","дровяная")
+        )
+        val blocks=mutableListOf(
+            block("duty-start","Начало дежурства",listOf(
+                "Прибыл к 10:00, отметил приход в журнале",
+                "Проверил бронирования и распоряжения"
+            ))
+        )
+        suites.forEach{(number,suite,stoveType)->
+            blocks+=block("duty-suite-$number","Парная №$number · $suite",listOf(
+                "Проверил печь №$number ($stoveType) — визуальный контроль",
+                "Зафиксировал температуру на момент проверки",
+                "Проверил трапы",
+                "Полки застелены и подготовлены",
+                "Ковши на месте",
+                "Валики имеются",
+                "Кадки и лейки на месте",
+                "Инвентарь размещён по местам",
+                "Техническое помещение: чистота и порядок"
+            ))
+        }
+        blocks+=block("duty-handover","Замечания и передача",listOf(
+            "Сообщил о неисправностях и незавершённых работах",
+            "Передал информацию о готовности сьютов"
+        ))
+        return ChecklistTemplate("duty-shift","DUTY",
+            "Дежурство · пять парных",2,blocks).validated()
+    }
     fun defaults()=listOf(reception(),bag(),duty())
 }

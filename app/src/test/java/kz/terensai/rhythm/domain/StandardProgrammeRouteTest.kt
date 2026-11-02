@@ -4,16 +4,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class StandardProgrammeRouteTest {
-    @Test fun grandHasTwoFiftyMinuteBlocksIncludingInternalBreak() {
+    @Test fun grandHasTwoThirtyMinuteBlocksWithInternalBreakAndThirtyBetween() {
         val route=StandardProgrammeRoute.preview(StandardRouteDraft("grand",guests=8))
         assertTrue(route.problem,route.valid)
         val collective=route.steps.filter{it.id.startsWith("grand-collective")}
         assertEquals(2,collective.size)
-        assertEquals(listOf(50,50),collective.map{it.minutes})
+        assertEquals(listOf(30,30),collective.map{it.minutes})
         assertTrue(collective.all{it.title.contains("5–7")})
-        assertEquals(20,route.steps.first{it.id=="grand-break"}.minutes)
+        assertEquals(30,route.steps.first{it.id=="grand-break"}.minutes)
+        assertEquals(20,route.steps.first{it.id=="welcome"}.minutes)
         assertEquals(240,route.steps.sumOf{it.minutes})
-        assertEquals(80,route.availableMinutes)
+        assertEquals(105,route.availableMinutes)
     }
 
     @Test fun lightSixGuestsAtTwoConcurrentOverrunsFourHours() {

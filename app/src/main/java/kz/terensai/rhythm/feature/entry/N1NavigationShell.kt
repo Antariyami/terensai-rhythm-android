@@ -66,12 +66,13 @@ fun N1NavigationShell(
         tab="shift"
     }
     BackHandler(enabled=tab!="home" && !mastersInSettings && !templatesInSettings){tab="home"}
-    LaunchedEffect(tab,newProgrammeRequested) {
-        if(tab=="shift"){
-            prepareNewProgramme=false
-            prepareCustomProgramme=false
-            standardProgrammeToPrepare=null
-        }
+    // Do not clear pending navigation here: the standard-route request must
+    // reach B23ShiftFlow before it is consumed. Clear only for ordinary shift navigation.
+    fun openOrdinaryShift(){
+        prepareNewProgramme=false
+        prepareCustomProgramme=false
+        standardProgrammeToPrepare=null
+        tab="shift"
     }
     Column(Modifier.fillMaxSize().background(C.canvas)){
         Box(Modifier.weight(1f)){
@@ -101,7 +102,7 @@ fun N1NavigationShell(
                     onQa=openQa,
                     showNewTimeline=true,
                     showMultiSession=true,
-                    onShift={tab="shift"}
+                    onShift=::openOrdinaryShift
                 )
                 "analytics"->N1InfoScreen(
                     title="Аналитика",
@@ -154,10 +155,10 @@ fun N1NavigationShell(
                 else->WelcomeScreen(
                     hasActiveSession=hasActiveSession,
                     onProgrammes={tab="programmes"},
-                    onContinue={tab="shift"},
+                    onContinue=::openOrdinaryShift,
                     showNewTimeline=true,
                     showMultiSession=true,
-                    onShift={tab="shift"}
+                    onShift=::openOrdinaryShift
                 )
             }
         }
@@ -165,7 +166,7 @@ fun N1NavigationShell(
             selected=tab,
             onHome={tab="home"},
             onProgrammes={tab="programmes"},
-            onShift={tab="shift"},
+            onShift=::openOrdinaryShift,
             onReports={tab="reports"},
             onAnalytics={tab="analytics"},
             onSettings={mastersInSettings=false;templatesInSettings=false;tab="settings"}

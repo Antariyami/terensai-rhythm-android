@@ -182,7 +182,7 @@ internal fun ProgrammesScreen(
     Spacer(Modifier.height(20.dp))
     Text("Выберите программу",color=C.white,fontSize=26.sp,fontWeight=FontWeight.Bold)
     Spacer(Modifier.height(6.dp))
-    Text("ТАНЫСУ работает. Для других штатных программ маршруты уточняются. Свою программу можно собрать вручную.",
+    Text("ТАНЫСУ, LIGHT, GRAND и PREMIUM доступны для тестирования. SUPREME пока только карточка.",
       color=C.secondary,fontSize=13.sp,lineHeight=19.sp)
     Spacer(Modifier.height(14.dp))
     LazyVerticalGrid(
@@ -295,7 +295,7 @@ private fun ProgrammeTile(item:ProgrammeSummary,onClick:()->Unit) {
             fontSize=20.sp,fontWeight=FontWeight.SemiBold)
         }
         Spacer(Modifier.width(8.dp))
-        Text(if(pilot) "ПИЛОТ" else if(custom) "СОЗДАТЬ" else "ОЖИДАЕТ МАРШРУТ",
+        Text(if(pilot) "ПИЛОТ" else if(custom) "СОЗДАТЬ" else if(item.id=="supreme") "КАРТОЧКА" else "МАРШРУТ",
           color=if(pilot || custom) C.success else C.secondary,fontSize=10.sp,
           fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis)
       }
