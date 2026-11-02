@@ -18,7 +18,7 @@ class P22ChecklistPersistenceTest {
         try{
             val repo=ChecklistRepository(db){1_800_000_000_000L}
             repo.ensureDefaults()
-            assertEquals(4,repo.templates().size)
+            assertEquals(3,repo.templates().size)
             val bag=ChecklistCatalog.bag()
             val first=repo.newRun(bag.id)
             val firstId=bag.blocks[0].items[0].id
@@ -48,7 +48,7 @@ class P22ChecklistPersistenceTest {
             assertEquals(source.blocks[1].id,updated.blocks.first().id)
             val clone=repo.importAsNew(repo.export(updated.id))
             assertNotEquals(source.id,clone.id)
-            assertEquals(3,repo.templates().size)
+            assertEquals(4,repo.templates().size)
             assertEquals(61,clone.totalItems)
         }finally{db.close()}
     }
