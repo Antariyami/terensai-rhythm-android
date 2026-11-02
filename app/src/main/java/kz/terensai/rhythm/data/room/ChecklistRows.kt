@@ -25,5 +25,8 @@ data class ChecklistRunRow(
     val status:String,
     val startedAtMs:Long,
     val updatedAtMs:Long,
-    val completedAtMs:Long?=null
+    val completedAtMs:Long?=null,
+    val staffIdSnapshot:String?=null,
+    val staffNameSnapshot:String?=null,
+    val dutyDate:String?=null
 )

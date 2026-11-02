@@ -119,5 +119,11 @@ object ChecklistCatalog {
             ))
         )).validated()
     }
-    fun defaults()=listOf(reception(),bag())
+    fun duty():ChecklistTemplate=ChecklistTemplate("duty-shift","DUTY","Дежурство",1,listOf(
+        block("duty-start","Начало смены",listOf("Прибыл к 10:00, отметил приход в журнале","Проверил бронирования и распоряжения")),
+        block("duty-stoves","Проверка печей",listOf("Проверил газовые печи №1, №3, №4","Проверил дровяные печи №2 и №5")),
+        block("duty-zones","Парные и инвентарь",listOf("Обошёл все пять парных","Проверил трапы, полки, текстиль и валики","Проверил кадки, лейки, ковши и инвентарь","Проверил порядок в технических помещениях")),
+        block("duty-handover","Замечания и передача",listOf("Сообщил о неисправностях и незавершённых работах","Передал информацию о готовности сьютов"))
+    )).validated()
+    fun defaults()=listOf(reception(),bag(),duty())
 }

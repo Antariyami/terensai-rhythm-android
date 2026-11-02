@@ -19,7 +19,7 @@ data class ChecklistTemplate(
 ) {
     val totalItems:Int get()=blocks.sumOf{it.items.size}
     fun validated():ChecklistTemplate {
-        require(type in setOf("BAG","RECEPTION","PREPARATION","HANDOVER"))
+        require(type in setOf("BAG","RECEPTION","PREPARATION","HANDOVER","DUTY"))
         require(id.length in 1..120 && title.trim().length in 2..120)
         require(version>=1 && blocks.size in 1..30)
         require(totalItems in 1..250)
