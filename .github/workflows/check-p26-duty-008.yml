@@ -23,7 +23,7 @@ jobs:
           test -n "$SDKMANAGER"
           "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: JVM tests, Android APK, Android instrumentation APK compilation
-        run: gradle --no-daemon -PparitmPreviewP26Duty :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+        run: gradle --no-daemon -PparitmPreviewP26DutyFix :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Upload combined test APK
         uses: actions/upload-artifact@v4
         with:
