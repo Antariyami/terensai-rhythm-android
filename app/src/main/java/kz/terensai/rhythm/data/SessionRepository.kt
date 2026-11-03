@@ -8,6 +8,10 @@ import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.ProgramSnapshotCodec
 import kz.terensai.rhythm.data.room.SessionMetadata
 import kz.terensai.rhythm.data.room.SessionRow
+import kz.terensai.rhythm.data.room.StageFactCorrectionRow
+import kz.terensai.rhythm.data.room.SessionClosureRow
+import kz.terensai.rhythm.domain.EffectiveStageFact
+import kz.terensai.rhythm.domain.StageFactRules
 import kz.terensai.rhythm.domain.Clock
 import kz.terensai.rhythm.domain.EventKind
 import kz.terensai.rhythm.domain.ProgramPlan
@@ -29,7 +33,10 @@ data class SavedSession(
     val eventCount: Int,
     val metadata: SessionMetadata = SessionMetadata(),
     val originClientId: String = "legacy-local",
-    val localRevision: Long = 0L
+    val localRevision: Long = 0L,
+    val correctedStageIds:Set<String> = emptySet(),
+    val closureOutcome:String? = null,
+    val closureReason:String? = null
 )
 
 /**
@@ -180,6 +187,119 @@ class SessionRepository(
         }
     }
 
+
+    suspend fun corrections(sessionId:String):List<StageFactCorrectionRow> =
+        withContext(Dispatchers.IO){dao.stageCorrections(sessionId)}
+
+    /** Append-only correction of stage reality; original timer events are untouched. */
+    suspend fun correctStageFact(sessionId:String,stageId:String,
+        effectiveStartMs:Long,effectiveEndMs:Long?,reason:String,
+        actor:String="Мастер",requestId:String=UUID.randomUUID().toString()
+    ):SavedSession=withContext(Dispatchers.IO){
+        require(requestId.isNotBlank() && reason.trim().length in 3..500)
+        database.withTransaction{
+            val row=dao.session(sessionId)?:error("Программа не найдена")
+            check(row.legacyJson==null){"Нельзя редактировать старую архивную запись"}
+            val duplicate=dao.stageCorrection(requestId)
+            if(duplicate!=null){
+                check(duplicate.sessionId==sessionId&&duplicate.stageId==stageId){
+                    "Идентификатор исправления уже использован"
+                }
+                return@withTransaction read(row)
+            }
+            val now=maxOf(clock.epochMillis(),row.startedAtMs)
+            require(effectiveStartMs in 1..now){"Начало позже текущего времени или некорректно"}
+            require(effectiveEndMs==null||(effectiveEndMs>effectiveStartMs &&
+                effectiveEndMs<=now)){"Проверь дату и время окончания"}
+            if(row.finishedAtMs!=null){
+                check(effectiveEndMs!=null&&effectiveEndMs<=row.finishedAtMs){
+                    "В завершённой программе факт не должен выходить за время закрытия"
+                }
+            }
+            val state=read(row)
+            val stage=state.progress.stages.firstOrNull{it.plan.id==stageId}
+                ?:error("Этап не найден")
+            check(stage.status!=StageStatus.SKIPPED){
+                "Пропущенный этап сначала нужно восстановить отдельным действием"
+            }
+            check(effectiveEndMs!=null||stage.status in
+                setOf(StageStatus.RUNNING,StageStatus.PAUSED)){
+                "Для неактивного этапа укажи и начало, и конец"
+            }
+            // Previously attributed personal work must not be silently desynced.
+            check(database.work().attributedStageCount(sessionId,stageId)==0){
+                "Этап уже перенесён в личный журнал. Его время нужно исправлять вместе с WorkEntry."
+            }
+            val candidateEnd=effectiveEndMs?:now
+            for(other in state.progress.stages){
+                if(other.plan.id==stageId||other.plan.track!=stage.plan.track)continue
+                val os=other.actualStartedAtMs?:continue
+                val oe=other.actualFinishedAtMs?:now
+                check(candidateEnd<=os||effectiveStartMs>=oe){
+                    "Время пересекается с этапом «${other.plan.title}» на одной дорожке"
+                }
+            }
+            val before=dao.events(sessionId)
+            val at=maxOf(now,(before.maxOfOrNull{it.atMs}?:now)+1L)
+            when(stage.status){
+                StageStatus.NOT_STARTED->{
+                    check(dao.appendEvent(kz.terensai.rhythm.data.room.EventRow(
+                        UUID.randomUUID().toString(),sessionId,stageId,"START",at))!=-1L)
+                    check(dao.appendEvent(kz.terensai.rhythm.data.room.EventRow(
+                        UUID.randomUUID().toString(),sessionId,stageId,"COMPLETE",at+1))!=-1L)
+                }
+                StageStatus.RUNNING,StageStatus.PAUSED->if(effectiveEndMs!=null){
+                    check(row.finishedAtMs==null)
+                    check(dao.appendEvent(kz.terensai.rhythm.data.room.EventRow(
+                        UUID.randomUUID().toString(),sessionId,stageId,"COMPLETE",at))!=-1L)
+                }
+                else->Unit
+            }
+            check(dao.addStageCorrection(StageFactCorrectionRow(
+                requestId,sessionId,stageId,effectiveStartMs,effectiveEndMs,
+                stage.actualStartedAtMs,stage.actualFinishedAtMs,
+                now,actor.take(80),reason.trim()
+            ))!=-1L)
+            check(dao.touchSession(sessionId,now)==1)
+            read(dao.session(sessionId)!!)
+        }
+    }
+
+    /** Explicit protected close; never deletes stage events or WorkEntries. */
+    suspend fun finishProtected(sessionId:String,outcome:String,
+        reason:String=""):SavedSession=withContext(Dispatchers.IO){
+        require(outcome in setOf("SAVED","INTERRUPTED"))
+        require(outcome!="INTERRUPTED"||reason.trim().length>=3){
+            "Укажи причину прерывания программы"
+        }
+        database.withTransaction{
+            val row=dao.session(sessionId)?:error("Программа не найдена")
+            check(row.legacyJson==null){"Архивную запись закрыть нельзя"}
+            if(row.finishedAtMs!=null)return@withTransaction read(row)
+            val at=maxOf(clock.epochMillis(),row.startedAtMs,
+                (dao.events(sessionId).maxOfOrNull{it.atMs}?:0L)+1L)
+            val activeWorks=database.work().forSession(sessionId).filter{work->
+                val view=WorkRepository(database,originClientId).projectForJournal(
+                    work,database.work().events(work.id),at)
+                view.state in setOf("RUNNING","PAUSED")
+            }
+            check(activeWorks.isEmpty()){
+                "Перед закрытием заверши или отметь текущие SPA-процедуры: ${activeWorks.size}"
+            }
+            val progress=read(row).progress
+            progress.stages.filter{it.status!=StageStatus.COMPLETED&&
+                it.status!=StageStatus.SKIPPED}.forEach{stage->
+                check(dao.appendEvent(kz.terensai.rhythm.data.room.EventRow(
+                    UUID.randomUUID().toString(),sessionId,stage.plan.id,
+                    EventKind.SKIP.name,at))!=-1L)
+            }
+            check(dao.addClosure(SessionClosureRow(sessionId,outcome,reason.trim(),at))!=-1L)
+            check(dao.finishSession(sessionId,at)==1)
+            check(dao.touchSession(sessionId,at)==1)
+            read(dao.session(sessionId)!!)
+        }
+    }
+
     suspend fun finish(sessionId: String): SavedSession = withContext(Dispatchers.IO) {
         database.withTransaction {
             val row = dao.session(sessionId) ?: error("Session not found")
@@ -206,13 +326,20 @@ class SessionRepository(
         }
         val now = maxOf(clock.epochMillis(), events.maxOfOrNull { it.atMs } ?: row.startedAtMs)
         val effectiveClock = Clock { row.finishedAtMs ?: now }
-        val progress = TimelineEngine(effectiveClock).project(
+        val baseProgress = TimelineEngine(effectiveClock).project(
             SessionPlan(row.id, plan, row.startedAtMs), events
         )
+        val facts=dao.stageCorrections(row.id)
+        val progress=StageFactRules.overlay(baseProgress,row.startedAtMs,
+            effectiveClock.epochMillis(),facts.map{
+                EffectiveStageFact(it.stageId,it.effectiveStartedAtMs,it.effectiveFinishedAtMs)
+            })
+        val closure=dao.closure(row.id)
         return SavedSession(
             row.id, row.templateTitle, row.startedAtMs,
             row.finishedAtMs, progress, events.size, ProgramSnapshotCodec.metadata(row.snapshotJson),
-            row.originClientId, row.localRevision
+            row.originClientId, row.localRevision,
+            facts.map{it.stageId}.toSet(),closure?.outcome,closure?.reason
         )
     }
 }

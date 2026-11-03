@@ -27,14 +27,14 @@ class P26DutyChecklistTest {
             repo.toggle(earlier.id,old.blocks.first().items.first().id)
             repo.ensureDefaults()
             val current=repo.template(old.id)!!
-            assertEquals(2,current.version)
-            assertEquals(49,current.totalItems)
+            assertEquals(3,current.version)
+            assertEquals(54,current.totalItems)
             val historical=repo.run(earlier.id)!!
             assertEquals(1,historical.templateVersion)
             assertEquals(10,ChecklistJson.decode(historical.snapshotJson).totalItems)
             assertTrue(DutyReport.render(historical).contains("1 из 10"))
             val newRun=repo.newRun(old.id,master.id)
-            assertEquals(49,ChecklistJson.decode(newRun.snapshotJson).totalItems)
+            assertEquals(54,ChecklistJson.decode(newRun.snapshotJson).totalItems)
             assertEquals("[]",newRun.checkedJson)
         }finally{db.close()}
     }
@@ -59,11 +59,11 @@ class P26DutyChecklistTest {
             assertNull(repo.activeForStaff(duty.id,second.id))
             val item=duty.blocks[0].items.first().id
             repo.toggle(firstRun.id,item)
-            repo.saveNote(firstRun.id,"duty-stoves","Передано Юрию")
+            repo.saveNote(firstRun.id,"duty-suite-2","Передано Юрию")
             val partial=repo.complete(firstRun.id,"NOTES","Не все проверки завершены")
             assertEquals("NOTES",partial.status)
             val result=DutyReport.render(partial)
-            assertTrue(result.contains("Проверено: 1 из 10"))
+            assertTrue(result.contains("Проверено: 1 из 54"))
             assertTrue(result.contains("Передано Юрию"))
             now+=86_400_000L
             val newRun=repo.newRun(duty.id,first.id)

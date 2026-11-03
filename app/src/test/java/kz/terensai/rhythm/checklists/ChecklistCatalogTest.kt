@@ -22,17 +22,21 @@ class ChecklistCatalogTest {
         assertEquals("шт.",bag.blocks.first().items.first().unit)
         assertNull(bag.blocks[1].items.first().quantity)
     }
-    @Test fun dutyHasFiveSeparateSuitesAndEditableNineChecksEach(){
+    @Test fun dutyHasFiveSeparateSuitesEachWithFansAndTenChecks(){
         val duty=ChecklistCatalog.duty()
         assertEquals("DUTY",duty.type)
-        assertEquals(listOf(2,9,9,9,9,9,2),duty.blocks.map{it.items.size})
-        assertEquals(49,duty.totalItems)
+        assertEquals(listOf(2,10,10,10,10,10,2),duty.blocks.map{it.items.size})
+        assertEquals(54,duty.totalItems)
         assertEquals(listOf("duty-suite-1","duty-suite-2","duty-suite-3",
             "duty-suite-4","duty-suite-5"),duty.blocks.drop(1).take(5).map{it.id})
         assertTrue(duty.blocks[1].items[0].title.contains("газовая"))
         assertTrue(duty.blocks[2].items[0].title.contains("дровяная"))
         assertTrue(duty.blocks[5].items[0].title.contains("дровяная"))
         assertTrue(duty.blocks.last().items.last().title.contains("готовности сьютов"))
+        assertEquals(5,duty.blocks.sumOf{b->b.items.count{
+            it.title=="Веера имеются в достаточном количестве"
+        }})
+        assertEquals(49,ChecklistCatalog.dutyV2().totalItems)
     }
     @Test fun movingAndEditingBlocksKeepsIdsStable() {
         val original=ChecklistCatalog.reception()

@@ -2,6 +2,7 @@ package kz.terensai.rhythm.feature.session
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -35,7 +36,9 @@ internal fun formatDelta(ms:Long):String {
 internal fun TimelineCard(
     progress:SessionProgress,
     stage:StageProgress?,
-    modifier:Modifier=Modifier
+    modifier:Modifier=Modifier,
+    correctedIds:Set<String> = emptySet(),
+    onStageClick:(String)->Unit = {}
 ) {
     val shape = RoundedCornerShape(18.dp)
     Column(modifier.background(C.panel,shape).border(1.dp,C.border,shape).padding(15.dp),
@@ -70,7 +73,10 @@ internal fun TimelineCard(
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("0:00",color=C.muted,fontSize=11.sp)
-            Text("3:00 · конец плана",color=C.amber,fontSize=11.sp)
+            val planMs=progress.stages.maxOfOrNull{
+                it.plan.startOffsetMs+it.plan.plannedDurationMs
+            }?:0L
+            Text("${formatElapsed(planMs)} · конец плана",color=C.amber,fontSize=11.sp)
         }
         // The programme overrun and start delay are independent metrics.
         val planMs=progress.stages.maxOfOrNull {
@@ -94,7 +100,8 @@ internal fun TimelineCard(
             }
         }
         progress.stages.forEachIndexed { index,s->
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clickable{onStageClick(s.plan.id)}
+                .padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically) {
                 Text(when(s.status) {
                     StageStatus.COMPLETED -> "✓"
                     StageStatus.RUNNING -> "●"
@@ -107,8 +114,15 @@ internal fun TimelineCard(
                 Text("${index+1}. ${s.plan.title}",Modifier.weight(1f),
                     color=if(s.status==StageStatus.RUNNING || s.status==StageStatus.PAUSED)
                         C.white else C.secondary,fontSize=12.sp)
-                Text("${s.plan.plannedDurationMs/60000} мин",
-                    color=C.muted,fontSize=11.sp)
+                Column(horizontalAlignment=Alignment.End){
+                    Text("План ${s.plan.plannedDurationMs/60000} мин",
+                        color=C.muted,fontSize=11.sp)
+                    Text("Факт ${if(s.actualStartedAtMs==null)"—" else formatElapsed(s.elapsedMs)}",
+                        color=if(s.plan.id in correctedIds) C.amber else C.secondary,
+                        fontSize=11.sp)
+                    if(s.plan.id in correctedIds)
+                        Text("Исправлено ✎",color=C.amber,fontSize=10.sp)
+                }
             }
         }
     }

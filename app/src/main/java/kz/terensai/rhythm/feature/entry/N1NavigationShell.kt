@@ -1,6 +1,13 @@
 package kz.terensai.rhythm.feature.entry
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import kz.terensai.rhythm.data.ParitmBackupService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -36,6 +43,33 @@ fun N1NavigationShell(
     showQa:Boolean=false,
     openQa:()->Unit={}
 ) {
+    val context=LocalContext.current
+    val scope=rememberCoroutineScope()
+    var backupMessage by remember{mutableStateOf<String?>(null)}
+    var restoreDialog by remember{mutableStateOf(false)}
+    var backupBusy by remember{mutableStateOf(false)}
+    val backupExport=rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ){uri->
+        if(uri!=null)scope.launch{
+            backupBusy=true
+            try{backupMessage=ParitmBackupService.export(context,uri)}
+            catch(e:Exception){backupMessage="Ошибка экспорта: ${e.message}"}
+            finally{backupBusy=false}
+        }
+    }
+    val backupImport=rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ){uri->
+        if(uri!=null)scope.launch{
+            backupBusy=true
+            try{
+                backupMessage=ParitmBackupService.stageImport(context,uri)
+                restoreDialog=true
+            }catch(e:Exception){backupMessage="Ошибка проверки копии: ${e.message}"}
+            finally{backupBusy=false}
+        }
+    }
     var tab by rememberSaveable {mutableStateOf("home")}
     var chosenSuite by rememberSaveable {mutableStateOf("")}
     var mastersInSettings by rememberSaveable {mutableStateOf(false)}
@@ -74,6 +108,28 @@ fun N1NavigationShell(
         standardProgrammeToPrepare=null
         tab="shift"
     }
+    if(restoreDialog)AlertDialog(
+        onDismissRequest={
+            restoreDialog=false
+            ParitmBackupService.cancelStagedRestore(context)
+        },
+        title={Text("Восстановить данные из копии?")},
+        text={Text("Текущая база будет сохранена во внутреннюю резервную папку, а выбранная копия заменит её при следующем запуске. Приложение сейчас закроется. Не продолжай работу с текущими сессиями после восстановления.")},
+        confirmButton={TextButton(onClick={
+            try{
+                ParitmBackupService.armStagedRestore(context)
+                restoreDialog=false
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }catch(e:Exception){
+                backupMessage="Не удалось подтвердить восстановление: ${e.message}"
+                restoreDialog=false
+            }
+        }){Text("Подтверждаю · закрыть приложение",color=C.amber)}},
+        dismissButton={TextButton(onClick={
+            restoreDialog=false
+            ParitmBackupService.cancelStagedRestore(context)
+        }){Text("Отмена",color=C.white)}}
+    )
     Column(Modifier.fillMaxSize().background(C.canvas)){
         Box(Modifier.weight(1f)){
             if(mastersInSettings) {
@@ -135,6 +191,21 @@ fun N1NavigationShell(
                         Text("Порядок: 1 Көркемдік · 2 Өркендеу · 3 Байлық · 4 Амандық · 5 Сәттілік. История предыдущих сессий сохраняется.",
                             color=C.bronze,fontSize=12.sp)
                     }
+                    Text("Резервная копия данных",color=C.cream,fontSize=20.sp,
+                        fontWeight=FontWeight.SemiBold)
+                    Text("Полная локальная копия SQLite содержит историю программ, отчёты, чек-листы и имена мастеров. Храни её только в доверенном месте. Файл не отправляется автоматически.",
+                        color=C.secondary,fontSize=13.sp)
+                    OutlinedButton(enabled=!backupBusy,
+                        onClick={backupExport.launch("PARITM-backup-${System.currentTimeMillis()}.sqlite")},
+                        modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
+                        Text("Сохранить резервную копию",color=C.amber)
+                    }
+                    OutlinedButton(enabled=!backupBusy,
+                        onClick={backupImport.launch(arrayOf("*/*"))},
+                        modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
+                        Text("Восстановить базу из копии…",color=C.bronze)
+                    }
+                    if(backupMessage!=null)Text(backupMessage!!,color=C.amber,fontSize=13.sp)
                     OutlinedButton(onClick={templatesInSettings=true},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
                         Text("Шаблоны чек-листов · редактор и JSON",color=C.amber)
                     }

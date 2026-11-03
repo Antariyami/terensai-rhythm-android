@@ -29,8 +29,11 @@ class ChecklistRepository(
                 if(saved==null){
                     dao.seed(ChecklistTemplateRow(candidate.id,candidate.type,candidate.version,
                         ChecklistJson.encode(candidate),now()))
-                }else if(candidate.type=="DUTY" && saved.version==1 &&
-                    saved.json==ChecklistJson.encode(ChecklistCatalog.dutyV1())){
+                }else if(candidate.type=="DUTY" && saved.version in 1..2 &&
+                    saved.json==ChecklistJson.encode(
+                        if(saved.version==1) ChecklistCatalog.dutyV1()
+                        else ChecklistCatalog.dutyV2()
+                    )){
                     // Upgrade the untouched built-in template only. Previously started
                     // runs keep their original snapshot; user-edited templates are retained.
                     dao.putTemplate(ChecklistTemplateRow(candidate.id,candidate.type,
@@ -119,19 +122,54 @@ class ChecklistRepository(
             updated
         }
     }
+    /** Atomic bulk update, scoped strictly to the snapshot block. */
+    suspend fun allNormal(runId:String,blockId:String):ChecklistRunRow=withContext(Dispatchers.IO){
+        db.withTransaction {
+            val run=dao.run(runId)?:error("Проверка не найдена")
+            check(run.status=="IN_PROGRESS"){"Завершённую проверку нельзя изменять"}
+            val snapshot=ChecklistJson.decode(run.snapshotJson)
+            val block=snapshot.blocks.firstOrNull{it.id==blockId}
+                ?:error("Блок отсутствует в сохранённом шаблоне")
+            val checked=ChecklistJson.decodeAnswers(run.checkedJson).toMutableSet()
+            checked.addAll(block.items.map{it.id})
+            val notes=ChecklistJson.decodeNotes(run.notesJson).toMutableMap()
+            if(snapshot.type=="DUTY" && blockId.startsWith("duty-suite-")){
+                val key="temperature:"+blockId
+                if(notes[key].isNullOrBlank()){
+                    notes[key]="200"
+                    notes["temperature-proposed:"+blockId]="yes"
+                }
+            }
+            val updated=run.copy(checkedJson=ChecklistJson.encodeAnswers(checked),
+                notesJson=ChecklistJson.encodeNotes(notes),updatedAtMs=now())
+            check(dao.updateRun(updated)==1)
+            updated
+        }
+    }
+
     suspend fun saveNote(runId:String,key:String,value:String):ChecklistRunRow=withContext(Dispatchers.IO){
         require(key.length in 1..120 && value.length<=2000)
         db.withTransaction {
             val run=dao.run(runId)?:error("Проверка не найдена")
             check(run.status=="IN_PROGRESS"){"Проверка уже завершена"}
             val snapshot=ChecklistJson.decode(run.snapshotJson)
+            if(key=="arrivalTime")require(value.isBlank()||
+                Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]").matches(value)){
+                "Время прибытия запиши в формате ЧЧ:ММ"
+            }
+            if(key.startsWith("temperature:") && value.isNotBlank())require(
+                (value.toIntOrNull()?:-1) in 0..400){"Укажи температуру числом от 0 до 400"}
             check(key in setOf("summary","important","heat","remarks","pm1") ||
+                (snapshot.type=="DUTY" && key=="arrivalTime") ||
                 snapshot.blocks.any{it.id==key} ||
                 (snapshot.type=="DUTY" && key.startsWith("temperature:") &&
                     snapshot.blocks.any{key=="temperature:"+it.id &&
                         it.id.startsWith("duty-suite-")})){"Недопустимое поле заметки"}
             val notes=ChecklistJson.decodeNotes(run.notesJson).toMutableMap()
             notes[key]=value
+            if(key.startsWith("temperature:")){
+                notes.remove("temperature-proposed:"+key.removePrefix("temperature:"))
+            }
             val updated=run.copy(notesJson=ChecklistJson.encodeNotes(notes),updatedAtMs=now())
             check(dao.updateRun(updated)==1)
             updated
@@ -153,6 +191,13 @@ class ChecklistRepository(
                 check(decision=="DONE" || snapshot.type in setOf("RECEPTION","DUTY")){"Решение недоступно для этого списка"}
                 if(decision in setOf("READY","DONE"))check(checked.size==snapshot.totalItems) {
                     "Для статуса «Готово» отметь все пункты"
+                }
+                if(snapshot.type=="DUTY" && decision=="DONE"){
+                    val notes=ChecklistJson.decodeNotes(run.notesJson)
+                    check(snapshot.blocks.filter{it.id.startsWith("duty-suite-")}.all{b->
+                        notes["temperature-proposed:"+b.id]!="yes" &&
+                            !notes["temperature:"+b.id].isNullOrBlank()
+                    }){"Подтверди измеренную температуру каждой парной перед статусом «Готово»"}
                 }
                 if(snapshot.type=="DUTY")check(decision in setOf("DONE","NOTES")){
                     "Дежурство: выбери завершение или сохранение с замечаниями"

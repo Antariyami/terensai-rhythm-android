@@ -25,6 +25,7 @@ import kz.terensai.rhythm.data.JournalLine
 import kz.terensai.rhythm.data.room.StaffRow
 import kz.terensai.rhythm.data.room.ParitmDatabase
 import kz.terensai.rhythm.data.room.SessionMetadata
+import kz.terensai.rhythm.data.room.StageFactCorrectionRow
 import kz.terensai.rhythm.domain.EventKind
 import kz.terensai.rhythm.domain.PilotTanysuPlan
 import kz.terensai.rhythm.domain.ProgramPlan
@@ -66,6 +67,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
     var myWorks by remember { mutableStateOf<List<WorkView>>(emptyList()) }
     var sessionWorks by remember { mutableStateOf<List<WorkView>>(emptyList()) }
     var sessionActions by remember { mutableStateOf(ProgrammeActionState(emptyList(),0,0L)) }
+    var stageCorrections by remember{mutableStateOf<List<StageFactCorrectionRow>>(emptyList())}
 
     var masters by remember { mutableStateOf<List<StaffRow>>(emptyList()) }
     var leaders by remember { mutableStateOf<Map<String,String>>(emptyMap()) }
@@ -98,6 +100,7 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                     if(selectedId!=null){
                         sessionWorks=workRepo.sessionWorks(selectedId!!)
                         sessionActions=actionRepo.view(selectedId!!)
+                        stageCorrections=repo.corrections(selectedId!!)
                     }
                     if(showingJournal){
                         journalLines=if(mine!=null)journalRepo.all(mine) else emptyList()
@@ -390,8 +393,21 @@ fun B23ShiftFlow(onBack: () -> Unit, initialNew: Boolean = false,
                         },
                         onFinish={
                             val id=session.id
-                            refreshAfter(action={ repo.finish(id) })
+                            refreshAfter(action={repo.finish(id)})
                         },
+                        onFinishProtected={outcome,reason->
+                            val id=session.id
+                            refreshAfter(action={repo.finishProtected(id,outcome,reason)})
+                        },
+                        onCorrectStage={stageId,start,end,reason->
+                            val id=session.id
+                            val actor=masters.firstOrNull{it.isMyProfile}?.displayName?:"Мастер"
+                            refreshAfter(action={
+                                repo.correctStageFact(id,stageId,start,end,reason,actor)
+                            },stageAction=true)
+                        },
+                        corrections=stageCorrections,
+                        activeWorkCount=sessionWorks.count{it.state in setOf("RUNNING","PAUSED")},
                         extraDurationMs=sessionActions.extensionMs,
                         liveActions={
                             val running=session.progress.stages.firstOrNull{it.status==StageStatus.RUNNING}
