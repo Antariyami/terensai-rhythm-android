@@ -127,7 +127,13 @@ object ChecklistCatalog {
         block("duty-handover","Замечания и передача",listOf("Сообщил о неисправностях и незавершённых работах","Передал информацию о готовности сьютов"))
     )).validated()
 
-    /** Distinct parnaya checks; temperature is stored in notes per bath. */
+    /** Original stock v2, needed for safe seed upgrade. */
+    fun dutyV2():ChecklistTemplate=duty().copy(version=2,blocks=duty().blocks.map{b->
+        b.copy(items=if(b.id.startsWith("duty-suite-"))
+            b.items.filterNot{it.title=="Веера имеются в достаточном количестве"} else b.items)
+    }).validated()
+
+    /** v3: fan sufficiency is checked separately in each of five suites. */
     fun duty():ChecklistTemplate {
         val suites=listOf(
             Triple(1,"Көркемдік","газовая"),
@@ -152,6 +158,7 @@ object ChecklistCatalog {
                 "Валики имеются",
                 "Кадки и лейки на месте",
                 "Инвентарь размещён по местам",
+                "Веера имеются в достаточном количестве",
                 "Техническое помещение: чистота и порядок"
             ))
         }
@@ -160,7 +167,7 @@ object ChecklistCatalog {
             "Передал информацию о готовности сьютов"
         ))
         return ChecklistTemplate("duty-shift","DUTY",
-            "Дежурство · пять парных",2,blocks).validated()
+            "Дежурство · пять парных",3,blocks).validated()
     }
     fun defaults()=listOf(reception(),bag(),duty())
 }

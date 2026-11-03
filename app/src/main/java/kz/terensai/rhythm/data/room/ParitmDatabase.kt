@@ -1,6 +1,7 @@
 package kz.terensai.rhythm.data.room
 
 import android.content.Context
+import kz.terensai.rhythm.data.ParitmBackupService
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -11,8 +12,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [ProgramRow::class, SessionRow::class, EventRow::class, StaffRow::class, AssignmentRow::class, WorkRow::class, WorkEventRow::class, WorkCorrectionRow::class,
         ChecklistTemplateRow::class, ChecklistRunRow::class,
-        ProgrammeActionRow::class],
-    version = 10,
+        ProgrammeActionRow::class,StageFactCorrectionRow::class,SessionClosureRow::class],
+    version = 11,
     exportSchema = true
 )
 abstract class ParitmDatabase : RoomDatabase() {
@@ -151,14 +152,43 @@ abstract class ParitmDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object:Migration(10,11) {
+            override fun migrate(db:SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS stage_fact_corrections (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT NOT NULL,
+                    stageId TEXT NOT NULL,
+                    effectiveStartedAtMs INTEGER NOT NULL,
+                    effectiveFinishedAtMs INTEGER,
+                    priorStartedAtMs INTEGER,
+                    priorFinishedAtMs INTEGER,
+                    recordedAtMs INTEGER NOT NULL,
+                    actor TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    FOREIGN KEY(sessionId) REFERENCES sessions(id)
+                    ON UPDATE NO ACTION ON DELETE CASCADE)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_fact_corrections_sessionId ON stage_fact_corrections(sessionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_fact_corrections_sessionId_stageId ON stage_fact_corrections(sessionId,stageId)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS session_closures (
+                    sessionId TEXT NOT NULL PRIMARY KEY,
+                    outcome TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    recordedAtMs INTEGER NOT NULL,
+                    FOREIGN KEY(sessionId) REFERENCES sessions(id)
+                    ON UPDATE NO ACTION ON DELETE CASCADE)""")
+            }
+        }
         @Volatile private var instance: ParitmDatabase? = null
 
         fun get(context: Context): ParitmDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext, ParitmDatabase::class.java,
-                    "paritm-local.db"
-                ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7,MIGRATION_7_8,MIGRATION_8_9,MIGRATION_9_10).build().also { instance = it }
+                instance ?: run {
+                    ParitmBackupService.applyPendingAtColdStart(context.applicationContext)
+                    Room.databaseBuilder(
+                        context.applicationContext, ParitmDatabase::class.java,
+                        "paritm-local.db"
+                    ).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7,MIGRATION_7_8,MIGRATION_8_9,MIGRATION_9_10,MIGRATION_10_11).build()
+                }.also { instance = it }
             }
     }
 }

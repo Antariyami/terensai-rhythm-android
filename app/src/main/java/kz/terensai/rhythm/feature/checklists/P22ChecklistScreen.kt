@@ -73,6 +73,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
     var editQty by remember{mutableStateOf("")}
     var editUnit by remember{mutableStateOf("")}
     var confirmDecision by remember{mutableStateOf<String?>(null)}
+    var confirmAllNormalBlock by remember{mutableStateOf<String?>(null)}
     var summary by remember{mutableStateOf("")}
 
     fun load() {
@@ -140,6 +141,18 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             finally{busy=false}
         }
     }
+    fun allNormal(blockId:String){
+        val id=run?.id?:return
+        if(busy)return
+        busy=true
+        scope.launch {
+            try{
+                run=repo.allNormal(id,blockId)
+                notice="Пункты этого блока отмечены. Проверь температуру и при необходимости поправь галочки; «Далее» нажми самостоятельно."
+            }catch(e:Exception){notice="Ошибка массовой проверки: ${e.message}"}
+            finally{busy=false}
+        }
+    }
     fun end(decision:String) {
         val id=run?.id?:return
         if(busy)return
@@ -158,6 +171,7 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             editDialog!=null -> editDialog=null
             importPreview!=null -> importPreview=null
             confirmDecision!=null -> confirmDecision=null
+            confirmAllNormalBlock!=null -> confirmAllNormalBlock=null
             confirmNewDuty!=null -> confirmNewDuty=null
             editor!=null -> editor=null
             run!=null && page>0 -> page--
@@ -287,10 +301,36 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
             Text(if(active.status=="IN_PROGRESS")"Проверка продолжается" else
                 "Завершено: ${statusLabel(active.status)}",color=C.secondary)
             Text(block.title,color=C.cream,fontSize=20.sp,fontWeight=FontWeight.SemiBold)
+            if(snapshot.type=="DUTY" && block.id=="duty-start"){
+                var arrival by remember(active.id){mutableStateOf(notes["arrivalTime"].orEmpty())}
+                OutlinedTextField(value=arrival,
+                    onValueChange={value->
+                        arrival=value.filter{it.isDigit()||it==':'}.take(5)
+                        if(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]").matches(arrival)){
+                            val recorded=arrival
+                            scope.launch{
+                                try{
+                                    val saved=repo.saveNote(active.id,"arrivalTime",recorded)
+                                    if(run?.id==active.id)run=saved
+                                }catch(e:Exception){notice="Ошибка записи прихода: ${e.message}"}
+                            }
+                        }
+                    },
+                    enabled=active.status=="IN_PROGRESS",
+                    modifier=Modifier.fillMaxWidth(),singleLine=true,
+                    label={Text("Фактически прибыл в (ЧЧ:ММ), например 10:12")},
+                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text))
+                Text("Время вводится вручную, отметка в чек-листе не записывает его в кадровый журнал.",
+                    color=C.secondary,fontSize=12.sp)
+            }
             if(snapshot.type=="DUTY" && block.id.startsWith("duty-suite-")){
                 val temperatureKey="temperature:"+block.id
                 var temperature by remember(active.id,block.id){
                     mutableStateOf(notes[temperatureKey].orEmpty())
+                }
+                LaunchedEffect(notes[temperatureKey]){
+                    val fromDb=notes[temperatureKey].orEmpty()
+                    if(temperature!=fromDb)temperature=fromDb
                 }
                 OutlinedTextField(
                     value=temperature,
@@ -313,6 +353,15 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
                     modifier=Modifier.fillMaxWidth(),singleLine=true
                 )
+                if(notes["temperature-proposed:"+block.id]=="yes")
+                    Text("200 °C предзаполнено как ориентир, НЕ измерено. Введи реальное показание, чтобы подтвердить.",
+                        color=C.amber,fontSize=12.sp)
+            }
+            if(active.status=="IN_PROGRESS"){
+                OutlinedButton(onClick={confirmAllNormalBlock=block.id},
+                    modifier=Modifier.fillMaxWidth(),enabled=!busy){
+                    Text("✓ Всё в норме · этот блок",color=C.amber)
+                }
             }
             block.items.forEach{item->
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -416,6 +465,23 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
                     color=C.secondary)
             }
             if(snapshot.type=="DUTY"){
+                OutlinedButton(onClick={
+                    val report=DutyReport.renderShort(active)
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                        .setPrimaryClip(ClipData.newPlainText("ПАРИТМ · Краткое дежурство",report))
+                    notice="Краткий отчёт скопирован."
+                },modifier=Modifier.fillMaxWidth()){
+                    Text("Скопировать КРАТКИЙ отчёт",color=C.fact)
+                }
+                OutlinedButton(onClick={
+                    val intent=Intent(Intent.ACTION_SEND).apply{
+                        type="text/plain"
+                        putExtra(Intent.EXTRA_TEXT,DutyReport.renderShort(active))
+                    }
+                    context.startActivity(Intent.createChooser(intent,"Отправить краткий отчёт"))
+                },modifier=Modifier.fillMaxWidth()){
+                    Text("Поделиться кратким отчётом",color=C.bronze)
+                }
                 OutlinedButton(onClick={
                     val report=DutyReport.render(active,if(active.status=="IN_PROGRESS") summary else null)
                     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
@@ -526,6 +592,17 @@ fun P22ChecklistScreen(onBack:()->Unit,initialEditor:Boolean=false) {
         Spacer(Modifier.height(30.dp))
     }
 
+    if(confirmAllNormalBlock!=null){
+        val blockId=confirmAllNormalBlock!!
+        AlertDialog(onDismissRequest={confirmAllNormalBlock=null},
+            title={Text("Всё в норме — текущая страница?")},
+            text={Text("Отметки означают, что ты действительно проверил все пункты этого блока. Температура 200 °C, если поле пусто, будет лишь предварительным значением, не фактом измерения. После подтверждения останешься здесь и сможешь поправить каждую галочку.")},
+            confirmButton={TextButton(onClick={
+                confirmAllNormalBlock=null
+                allNormal(blockId)
+            }){Text("Подтверждаю проверку",color=C.amber)}},
+            dismissButton={TextButton(onClick={confirmAllNormalBlock=null}){Text("Отмена")}})
+    }
     if(confirmNewDuty!=null){
         val templateId=confirmNewDuty!!
         AlertDialog(

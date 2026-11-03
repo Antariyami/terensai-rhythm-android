@@ -47,6 +47,17 @@ interface ParitmDao {
     @Query("SELECT * FROM session_events WHERE sessionId = :id ORDER BY atMs, id")
     fun events(id: String): List<EventRow>
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun addStageCorrection(row:StageFactCorrectionRow):Long
+    @Query("SELECT * FROM stage_fact_corrections WHERE sessionId=:id ORDER BY recordedAtMs,id")
+    fun stageCorrections(id:String):List<StageFactCorrectionRow>
+    @Query("SELECT * FROM stage_fact_corrections WHERE id=:id LIMIT 1")
+    fun stageCorrection(id:String):StageFactCorrectionRow?
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun addClosure(row:SessionClosureRow):Long
+    @Query("SELECT * FROM session_closures WHERE sessionId=:id LIMIT 1")
+    fun closure(id:String):SessionClosureRow?
+
     @Query("SELECT COUNT(*) FROM sessions")
     fun sessionCount(): Int
 }

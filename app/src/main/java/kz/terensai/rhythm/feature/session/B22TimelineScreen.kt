@@ -7,6 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import kz.terensai.rhythm.data.room.StageFactCorrectionRow
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +43,10 @@ fun B22TimelineScreen(
     onCommand:(String,EventKind)->Unit,
     onReopen:(String)->Unit,
     onFinish:()->Unit,
+    onFinishProtected:(String,String)->Unit={_,_->onFinish()},
+    onCorrectStage:(String,Long,Long?,String)->Unit={_,_,_,_->},
+    corrections:List<StageFactCorrectionRow> = emptyList(),
+    activeWorkCount:Int=0,
     extraDurationMs:Long=0L,
     liveActions:@Composable ()->Unit={},
     backLabel:String="‹ К программам"
@@ -59,6 +67,10 @@ fun B22TimelineScreen(
     val finished=all.all { it.status==StageStatus.COMPLETED ||
         it.status==StageStatus.SKIPPED }
     var confirmFinish by remember { mutableStateOf(false) }
+    var finishMenuOpen by remember { mutableStateOf(false) }
+    var finishMode by remember {mutableStateOf("SAVED")}
+    var finishReason by remember {mutableStateOf("")}
+    var stageToEdit by remember(saved.id){mutableStateOf<String?>(null)}
     var confirmSkip by remember { mutableStateOf(false) }
     var confirmReopen by remember { mutableStateOf(false) }
     val plannedDuration=saved.progress.plannedEndMs-saved.startedAtMs+extraDurationMs
@@ -76,6 +88,16 @@ fun B22TimelineScreen(
         Row(verticalAlignment=Alignment.CenterVertically) {
             TextButton(onClick=onBack){Text(backLabel,color=C.amber)}
             Spacer(Modifier.weight(1f))
+            Box {
+                TextButton(onClick={finishMenuOpen=true},enabled=!pending){
+                    Text("⋮ Действия",color=C.amber)
+                }
+                DropdownMenu(expanded=finishMenuOpen,
+                    onDismissRequest={finishMenuOpen=false}){
+                    DropdownMenuItem(text={Text("Завершить всю программу…")},
+                        onClick={finishMenuOpen=false;confirmFinish=true})
+                }
+            }
             Image(painterResource(R.drawable.paritm_approved_mark_hq),
                 contentDescription="ПАРИТМ",modifier=Modifier.size(44.dp))
         }
@@ -142,11 +164,17 @@ fun B22TimelineScreen(
             enabled=!pending,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) {
             Text("← Предыдущий этап: ${previous.plan.title}",color=C.amber)
         }
-        TimelineCard(progress=saved.progress,stage=current,modifier=Modifier.fillMaxWidth())
+        TimelineCard(progress=saved.progress,stage=current,
+            modifier=Modifier.fillMaxWidth(),
+            correctedIds=saved.correctedStageIds,
+            onStageClick={stageToEdit=it})
+        Text("Нажми на любой этап шкалы, чтобы отредактировать фактические часы начала и конца.",
+            color=C.secondary,fontSize=12.sp)
         liveActions()
         if(notice!=null) Text(notice,color=C.bronze,fontSize=13.sp)
         if(finished) ParitmPrimaryButton("Завершить программу",
-            onClick={confirmFinish=true},enabled=!pending,modifier=Modifier.fillMaxWidth())
+            onClick={finishMode="SAVED";confirmFinish=true},
+            enabled=!pending,modifier=Modifier.fillMaxWidth())
         Text("Назад — без остановки хронометража. Этап на паузе, но общее время идёт.",
             color=C.muted,fontSize=12.sp)
         Spacer(Modifier.height(24.dp))
@@ -174,15 +202,55 @@ fun B22TimelineScreen(
         }){Text("Пропустить",color=C.overrun)}},
         dismissButton={TextButton(onClick={confirmSkip=false}){Text("Отмена",color=C.white)}}
     )
+    val edit=all.firstOrNull{it.plan.id==stageToEdit}
+    if(edit!=null)P28StageFactEditor(
+        stage=edit,history=corrections.filter{it.stageId==edit.plan.id},
+        pending=pending,onDismiss={stageToEdit=null},
+        onSave={started,ended,reason->
+            stageToEdit=null
+            onCorrectStage(edit.plan.id,started,ended,reason)
+        }
+    )
     if(confirmFinish) AlertDialog(
-        onDismissRequest={confirmFinish=false},containerColor=C.panel,
-        title={Text("Завершить сессию?",color=C.white)},
-        text={Text("Все события останутся в базе данных.",color=C.secondary)},
-        confirmButton={TextButton(onClick={
-            confirmFinish=false
-            onFinish()
-        }){Text("Завершить",color=C.amber)}},
-        dismissButton={TextButton(onClick={confirmFinish=false}){Text("Отмена",color=C.white)}}
+        onDismissRequest={confirmFinish=false},
+        containerColor=C.panel,
+        title={Text("Завершить всю программу?",color=C.white)},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(9.dp)){
+                Text("Выполнено ${all.count{it.status==StageStatus.COMPLETED}} из ${all.size} этапов. "+
+                    "Незавершённые будут отмечены как пропущенные; реальные работы останутся в журнале.",
+                    color=C.secondary)
+                if(activeWorkCount>0)
+                    Text("Активных/приостановленных дополнительных процедур: $activeWorkCount. "+
+                        "Сначала заверши их, иначе закрытие будет заблокировано.",
+                        color=C.overrun)
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    OutlinedButton(onClick={finishMode="SAVED"}){
+                        Text("Сохранить",color=if(finishMode=="SAVED")C.fact else C.secondary)
+                    }
+                    OutlinedButton(onClick={finishMode="INTERRUPTED"}){
+                        Text("Прервана",color=if(finishMode=="INTERRUPTED")C.amber else C.secondary)
+                    }
+                }
+                if(finishMode=="INTERRUPTED"){
+                    OutlinedTextField(value=finishReason,
+                        onValueChange={finishReason=it.take(500)},
+                        label={Text("Причина изменения программы")},
+                        modifier=Modifier.fillMaxWidth())
+                }
+                Text("Это закрытие не удаляет выполненные парения и не аннулирует личные записи.",
+                    color=C.muted)
+            }
+        },
+        confirmButton={TextButton(enabled=!pending&&activeWorkCount==0&&
+            (finishMode!="INTERRUPTED"||finishReason.trim().length>=3),
+            onClick={
+                val choice=finishMode
+                val reason=finishReason
+                confirmFinish=false
+                onFinishProtected(choice,reason)
+            }){Text("Подтвердить завершение",color=C.amber)}},
+        dismissButton={TextButton(onClick={confirmFinish=false}){Text("Продолжить",color=C.white)}}
     )
     }
 }
