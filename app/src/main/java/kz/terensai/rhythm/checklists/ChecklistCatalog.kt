@@ -130,7 +130,9 @@ object ChecklistCatalog {
     /** Original stock v2, needed for safe seed upgrade. */
     fun dutyV2():ChecklistTemplate=duty().copy(version=2,blocks=duty().blocks.map{b->
         b.copy(items=if(b.id.startsWith("duty-suite-"))
-            b.items.filterNot{it.title=="Веера имеются в достаточном количестве"} else b.items)
+            b.items.filterNot{it.title=="Веера имеются в достаточном количестве"}
+                .mapIndexed{index,item->item.copy(id="${b.id}-${index+1}")}
+            else b.items)
     }).validated()
 
     /** v3: fan sufficiency is checked separately in each of five suites. */
