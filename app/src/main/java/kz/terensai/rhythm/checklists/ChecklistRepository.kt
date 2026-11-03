@@ -192,6 +192,13 @@ class ChecklistRepository(
                 if(decision in setOf("READY","DONE"))check(checked.size==snapshot.totalItems) {
                     "Для статуса «Готово» отметь все пункты"
                 }
+                if(snapshot.type=="DUTY" && decision=="DONE"){
+                    val notes=ChecklistJson.decodeNotes(run.notesJson)
+                    check(snapshot.blocks.filter{it.id.startsWith("duty-suite-")}.all{b->
+                        notes["temperature-proposed:"+b.id]!="yes" &&
+                            !notes["temperature:"+b.id].isNullOrBlank()
+                    }){"Подтверди измеренную температуру каждой парной перед статусом «Готово»"}
+                }
                 if(snapshot.type=="DUTY")check(decision in setOf("DONE","NOTES")){
                     "Дежурство: выбери завершение или сохранение с замечаниями"
                 }
