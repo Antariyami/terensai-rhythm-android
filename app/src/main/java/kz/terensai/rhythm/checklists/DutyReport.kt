@@ -67,7 +67,9 @@ object DutyReport {
             appendLine("Мастер: ${run.staffNameSnapshot?:"не указан"}")
             appendLine("Прибыл: ${notes["arrivalTime"]?.takeIf{it.isNotBlank()}?:"не указано"}")
             template.blocks.filter{it.id.startsWith("duty-suite-")}.forEach{b->
-                val suiteChecked=b.items.all{it.id in checked}
+                val suiteChecked=b.items.all{it.id in checked} &&
+                    notes["temperature-proposed:"+b.id]!="yes" &&
+                    !notes["temperature:"+b.id].isNullOrBlank()
                 val inventory=b.items.firstOrNull{it.title.contains("Инвентарь размещён")}
                     ?.let{it.id in checked}?:false
                 val temp=notes["temperature:"+b.id]?.takeIf{it.isNotBlank()}
